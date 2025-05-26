@@ -45,3 +45,24 @@ osint_system/
     ├── agents/
     ├── data_management/
     └── utils/
+
+### Explanation of the Structure:
+
+- **`osint_system/`**: The root directory for the entire project.
+- **`config/`**: Contains all configuration files. This separation allows for easy modification of settings without changing code and supports different environments (e.g., development, production).
+- **`agents/`**: This is the core of the multi-agent system.
+    - `base_agent.py`: Defines a common interface or base class for all agents, promoting code reusability and consistency.
+    - Dedicated modules for `planning_agent.py`, `crawlers/`, and `sifters/` reflect the distinct cohorts and their specializations.
+    - `crawlers/` and `sifters/` are subdirectories because they contain multiple specialized agents, each with its own logic.
+- **`data_management/`**: Handles all aspects related to data flow, storage, and initial processing.
+    - `data_store.py`: Abstraction for interacting with the database or file system where raw and processed data are stored.
+    - `preprocessor.py`: Contains functions for cleaning and normalizing raw data before LLM processing.
+    - `metadata_handler.py`: Ensures crucial metadata from sources is captured and preserved.
+- **`utils/`**: A collection of shared utility functions and helper modules that can be used across different parts of the system.
+    - `llm_utils.py`: Centralizes LLM-related operations like prompt construction and API call handling.
+    - `communication_protocols.py`: Houses the logic for agent-to-agent communication (A2A) and model context protocol (MCP) integrations.
+- **`tools/`**: Contains wrappers or interfaces for external tools and APIs that the agents will utilize. This modularity makes it easy to add or swap out specific tools without affecting agent logic.
+- **`main.py`**: The primary script that kicks off the OSINT process, setting up the agents, and initiating the global planning.
+- **`requirements.txt`**: Lists all necessary Python libraries for easy environment setup.
+- **`README.md`**: The existing documentation for the project.
+- **`tests/`**: A dedicated directory for automated tests, organized by the components they test, ensuring reliability and maintainability.
