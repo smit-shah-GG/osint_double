@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = Field(..., description="Google Gemini API key")
     gemini_model: str = Field(
-        default="gemini-1.5-pro",
+        default="gemini-3-pro-preview",
         description="Default Gemini model identifier"
     )
     max_rpm: int = Field(
