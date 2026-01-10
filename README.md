@@ -1,5 +1,40 @@
 # An Advanced Framework for LLM-Powered Multi-Agent Open-Source Intelligence Gathering and Analysis
 
+## Quick Start
+
+### Prerequisites
+- Python 3.11+
+- uv package manager ([installation guide](https://docs.astral.sh/uv/))
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/smit-shah-GG/osint_double.git
+cd osint_double
+
+# Create virtual environment
+uv venv
+
+# Activate virtual environment
+source .venv/bin/activate  # On Unix/macOS
+# or
+.venv\Scripts\activate  # On Windows
+
+# Install dependencies
+uv sync
+```
+
+### Usage
+
+```bash
+python main.py
+```
+
+For detailed documentation, see the sections below.
+
+---
+
 ## I. Introduction: Conceptualizing Your LLM-Powered OSINT System
 
 The endeavor to construct an LLM-powered Open-Source Intelligence (OSINT) system, characterized by a "crawler-sifter" multi-agent architecture, represents a sophisticated approach to automated information gathering and analysis. This system aims to move beyond simple data collection, incorporating nuanced fact extraction, classification, and verification processes.
