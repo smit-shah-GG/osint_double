@@ -1,9 +1,11 @@
 """Interactive CLI for OSINT Intelligence System using Typer and Rich."""
 
 import sys
+import time
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 
 from osint_system.config.settings import settings
 from osint_system.config.logging import get_logger
@@ -77,6 +79,67 @@ def agent(
 
     # Placeholder for future agent execution logic
     console.print(f"\n[dim]Would run agent '{name}' with task: {task}[/dim]")
+
+
+@app.command()
+def test_gemini(
+    prompt: str = typer.Option(None, prompt="Enter test prompt")
+) -> None:
+    """
+    Test Gemini API connection with a simple prompt.
+
+    Args:
+        prompt: Test prompt to send to Gemini API
+    """
+    logger.info("Testing Gemini API connection")
+
+    try:
+        # Import Gemini client
+        from osint_system.llm.gemini_client import client
+
+        # Display prompt info
+        console.print("\n[bold cyan]Testing Gemini API[/bold cyan]")
+        console.print(f"[yellow]Prompt:[/yellow] {prompt}\n")
+
+        # Count tokens
+        token_count = client.count_tokens(prompt)
+        console.print(f"[dim]Token count: {token_count}[/dim]")
+
+        # Start timing
+        start_time = time.time()
+
+        # Generate content
+        console.print("[dim]Generating response...[/dim]\n")
+        response = client.generate_content(prompt)
+
+        # Calculate elapsed time
+        elapsed = time.time() - start_time
+
+        # Truncate response if too long
+        display_response = response[:500]
+        if len(response) > 500:
+            display_response += "..."
+
+        # Display response in a panel
+        console.print(Panel(
+            display_response,
+            title="Gemini Response",
+            border_style="green"
+        ))
+
+        # Display success message
+        console.print(
+            f"\n[green]✓[/green] Success! "
+            f"Response generated in {elapsed:.2f}s "
+            f"({len(response)} chars)"
+        )
+
+        logger.info("Gemini API test completed successfully")
+
+    except Exception as e:
+        console.print(f"\n[red]✗[/red] Error: {e}")
+        logger.error(f"Gemini API test failed: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
