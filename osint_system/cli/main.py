@@ -2,6 +2,7 @@
 
 import sys
 import time
+import asyncio
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -9,6 +10,7 @@ from rich.panel import Panel
 
 from osint_system.config.settings import settings
 from osint_system.config.logging import get_logger
+from osint_system.agents.simple_agent import SimpleAgent
 
 # Initialize CLI app
 app = typer.Typer(
@@ -61,24 +63,59 @@ def status() -> None:
 
 @app.command()
 def agent(
-    name: str = typer.Option(..., prompt="Agent name"),
-    task: str = typer.Option(..., prompt="Task description"),
+    name: str = typer.Option("simple", help="Agent to run"),
+    task: str = typer.Option(..., prompt=True)
 ) -> None:
     """
     Run an agent with a specific task.
 
     Args:
-        name: Agent name (e.g., newsfeed, fact_extraction)
+        name: Agent name (default: simple)
         task: Task description for the agent to execute
     """
-    logger.info(f"Agent command invoked: {name}", extra={"task": task})
+    console.print(f"[bold green]Starting agent: {name}[/bold green]")
 
-    console.print(f"[bold cyan]Agent:[/bold cyan] {name}")
-    console.print(f"[bold yellow]Task:[/bold yellow] {task}")
-    console.print("\n[italic]Agent execution not yet implemented - coming in Phase 2[/italic]")
+    if name.lower() == "simple":
+        # Instantiate agent
+        agent_instance = SimpleAgent()
+        console.print(f"Agent ID: {agent_instance.agent_id}")
 
-    # Placeholder for future agent execution logic
-    console.print(f"\n[dim]Would run agent '{name}' with task: {task}[/dim]")
+        # Run async process
+        result = asyncio.run(agent_instance.process({"task": task}))
+
+        if result["status"] == "success":
+            console.print("[green]✓[/green] Task completed successfully")
+
+            # Truncate response if too long
+            response_text = result['response']
+            if len(response_text) > 500:
+                response_text = response_text[:500] + "..."
+
+            console.print(f"Response: {response_text}")
+            console.print(f"Tokens used: {result['tokens_used']}")
+        else:
+            console.print(f"[red]✗[/red] Task failed: {result['error']}")
+    else:
+        console.print(f"[yellow]Unknown agent: {name}[/yellow]")
+
+
+@app.command()
+def list_agents() -> None:
+    """List available agents and their capabilities."""
+    table = Table(title="Available Agents")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Description")
+    table.add_column("Capabilities", style="green")
+
+    # Add SimpleAgent to table
+    agent = SimpleAgent()
+    table.add_row(
+        agent.name,
+        agent.description,
+        ", ".join(agent.get_capabilities())
+    )
+
+    console.print(table)
 
 
 @app.command()
