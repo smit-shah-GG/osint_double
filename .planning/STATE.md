@@ -10,25 +10,25 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 2 of 10 (Base Agent Architecture)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-11 — Completed 02-01-PLAN.md
+Last activity: 2026-01-11 — Completed 02-02-PLAN.md
 
-Progress: ████████████ 14%
+Progress: ███████████████ 17%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 6 min
-- Total execution time: 29 min
+- Total plans completed: 6
+- Average duration: 5 min
+- Total execution time: 33 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 4/4 | 24 min | 6 min |
-| 02-base-agent-architecture | 1/4 | 5 min | 5 min |
+| 02-base-agent-architecture | 2/4 | 9 min | 4.5 min |
 
 **Recent Trend:**
 - Last 5 plans: —
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 - Use structlog for structured logging instead of loguru alone
 - Make MCP integration optional to maintain flexibility
 - Use async context manager pattern for clean resource management
+- Use singleton pattern for MessageBus to ensure single hub instance
+- Implement capability indexing for O(1) agent lookup
+- Use Pydantic for message validation and type safety
 
 ### Deferred Issues
 
@@ -60,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-11 02:36
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-01-11 03:06
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

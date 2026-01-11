@@ -17,7 +17,7 @@ None
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Environment Setup** - Python environment, Gemini API, project structure ✓ Complete
-- [ ] **Phase 2: Base Agent Architecture** - Core agent classes, MCP/A2A protocols (1/4 plans complete)
+- [ ] **Phase 2: Base Agent Architecture** - Core agent classes, MCP/A2A protocols (2/4 plans complete)
 - [ ] **Phase 3: Planning & Orchestration Agent** - Task decomposition and hierarchical coordination
 - [ ] **Phase 4: News Crawler Implementation** - RSS feeds and news API integration
 - [ ] **Phase 5: Extended Crawler Cohort** - Social media and document crawlers
@@ -48,12 +48,12 @@ Plans:
 **Depends on**: Phase 1
 **Research**: Complete ✓
 **Research topics**: MCP protocol implementation, A2A communication patterns, agent interface design
-**Plans**: 4 plans (1/4 complete)
+**Plans**: 4 plans (2/4 complete)
 **Status**: In progress
 
 Plans:
 - [x] 02-01: Dependencies & Enhanced BaseAgent ✓
-- [ ] 02-02: Message Bus & Registry
+- [x] 02-02: Message Bus & Registry ✓
 - [ ] 02-03: LangGraph Orchestration
 - [ ] 02-04: MCP Tool Server & Integration
 
