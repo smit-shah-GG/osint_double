@@ -165,7 +165,6 @@ class MessageBus:
         self._active_subscriptions[subscriber_name].add(key)
 
         # Register callback
-        @subscriber.on(key)
         async def message_handler(key_received, message):
             """Handle incoming messages."""
             try:
@@ -173,6 +172,9 @@ class MessageBus:
             except Exception as e:
                 self.logger.error(f"Subscriber {subscriber_name} callback error: {e}",
                                 exc_info=True)
+
+        # Add the async listener for this key
+        subscriber.add_async_listener(key, message_handler)
 
         self.logger.info(f"Subscriber {subscriber_name} subscribed to pattern: {pattern}")
         return subscriber

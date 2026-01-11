@@ -6,7 +6,7 @@ tools to LLM agents for web scraping, search, and other operations.
 
 import asyncio
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.shared.exceptions import McpError
@@ -22,10 +22,9 @@ from mcp.types import (
 server = Server("osint-tools")
 
 
-@server.tool()
-async def web_scraper() -> Tool:
-    """Define the web scraper tool."""
-    return Tool(
+# Define the available tools
+AVAILABLE_TOOLS = {
+    "web_scraper": Tool(
         name="web_scraper",
         description="Scrape content from a given URL",
         inputSchema={
@@ -43,13 +42,8 @@ async def web_scraper() -> Tool:
             },
             "required": ["url"]
         }
-    )
-
-
-@server.tool()
-async def search_tool() -> Tool:
-    """Define the search tool."""
-    return Tool(
+    ),
+    "search_tool": Tool(
         name="search_tool",
         description="Search for information using a query",
         inputSchema={
@@ -68,6 +62,13 @@ async def search_tool() -> Tool:
             "required": ["query"]
         }
     )
+}
+
+
+@server.list_tools()
+async def list_tools() -> List[Tool]:
+    """Return the list of available tools."""
+    return list(AVAILABLE_TOOLS.values())
 
 
 @server.call_tool()

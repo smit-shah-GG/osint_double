@@ -51,7 +51,7 @@ async def test_agent_registration():
     print(f"✓ Agent registered with ID: {agent_id}")
 
     # Find agent by capability
-    agents = registry.find_by_capability("search")
+    agents = await registry.find_agents_by_capability("search")
     assert len(agents) == 1, f"Expected 1 agent with 'search', got {len(agents)}"
     print("✓ Agent found by capability")
 

@@ -145,12 +145,17 @@ class OrchestratorGraph:
                     "next_agent": END
                 }
 
-        # Add node to graph
-        self.graph.add_node(name, agent_wrapper)
-        self._agent_nodes[name] = agent_func
+        # Add node to graph if it doesn't already exist
+        if name not in self.graph.nodes:
+            self.graph.add_node(name, agent_wrapper)
+            self._agent_nodes[name] = agent_func
 
-        # Add edge from this agent back to supervisor
-        self.graph.add_edge(name, "supervisor")
+            # Add edge from this agent back to supervisor
+            self.graph.add_edge(name, "supervisor")
+        else:
+            # Update existing node
+            self._agent_nodes[name] = agent_func
+            self.logger.debug(f"Updated existing node: {name}")
 
         self.logger.info(f"Added agent node: {name}")
 
