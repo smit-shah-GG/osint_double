@@ -14,30 +14,35 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from osint_system.communication.message_bus import MessageBus
-from osint_system.communication.registry import AgentRegistry
+from osint_system.agents.communication.bus import MessageBus
+from osint_system.agents.registry import AgentRegistry
 from osint_system.agents.base_agent import BaseAgent
 from osint_system.orchestration.coordinator import Coordinator
 
 
-class SimpleAgent(BaseAgent):
+class TestAgent(BaseAgent):
     """Simple test agent implementation."""
 
     def __init__(self, agent_id: str, capabilities: list[str]):
         """Initialize test agent with given capabilities."""
-        super().__init__(agent_id, "simple_agent")
+        super().__init__(agent_id, "test_agent")
         self._capabilities = capabilities
         self.received_messages = []
+        self.agent_type = "test_agent"  # For compatibility
 
-    async def process_message(self, message: dict) -> dict:
-        """Process a message and return response."""
-        self.received_messages.append(message)
+    async def process(self, input_data: dict) -> dict:
+        """Process input data - implements abstract method."""
+        self.received_messages.append(input_data)
         return {
             "status": "processed",
             "agent_id": self.agent_id,
-            "message_type": message.get("type", "unknown"),
+            "message_type": input_data.get("type", "unknown"),
             "content": f"Processed by {self.agent_id}"
         }
+
+    async def process_message(self, message: dict) -> dict:
+        """Process a message and return response."""
+        return await self.process(message)
 
     def get_capabilities(self) -> list[str]:
         """Return agent capabilities."""
@@ -58,17 +63,24 @@ async def test_agent_registration():
     print("\n[TEST] Agent Registration and Discovery")
     print("=" * 50)
 
-    # Create message bus and registry
-    bus = MessageBus()
-    registry = AgentRegistry(bus)
+    # Create registry (it doesn't take MessageBus as param)
+    registry = AgentRegistry()
 
     # Create two test agents
-    agent1 = SimpleAgent("test_agent_1", ["search", "extract"])
-    agent2 = SimpleAgent("test_agent_2", ["analyze", "verify"])
+    agent1 = TestAgent("test_agent_1", ["search", "extract"])
+    agent2 = TestAgent("test_agent_2", ["analyze", "verify"])
 
-    # Register agents
-    await registry.register(agent1)
-    await registry.register(agent2)
+    # Register agents using registry's register_agent method
+    await registry.register_agent(
+        name=agent1.name,
+        capabilities=agent1.get_capabilities(),
+        agent_id=agent1.agent_id
+    )
+    await registry.register_agent(
+        name=agent2.name,
+        capabilities=agent2.get_capabilities(),
+        agent_id=agent2.agent_id
+    )
 
     # Test discovery
     all_agents = registry.get_all_agents()
@@ -96,14 +108,22 @@ async def test_message_passing():
 
     # Create infrastructure
     bus = MessageBus()
-    registry = AgentRegistry(bus)
+    registry = AgentRegistry()
 
     # Create and register agents
-    agent1 = SimpleAgent("sender", ["send"])
-    agent2 = SimpleAgent("receiver", ["receive"])
+    agent1 = TestAgent("sender", ["send"])
+    agent2 = TestAgent("receiver", ["receive"])
 
-    await registry.register(agent1)
-    await registry.register(agent2)
+    await registry.register_agent(
+        name=agent1.name,
+        capabilities=agent1.get_capabilities(),
+        agent_id=agent1.agent_id
+    )
+    await registry.register_agent(
+        name=agent2.name,
+        capabilities=agent2.get_capabilities(),
+        agent_id=agent2.agent_id
+    )
 
     # Subscribe agent2 to a channel
     callback_triggered = False
@@ -140,21 +160,24 @@ async def test_coordinator_workflow():
     print("\n[TEST] Coordinator Workflow Management")
     print("=" * 50)
 
-    # Create infrastructure
-    bus = MessageBus()
-    registry = AgentRegistry(bus)
+    # Create coordinator (it creates its own registry and bus internally)
+    coordinator = Coordinator()
+
+    # Get the internal registry for agent registration
+    registry = coordinator.registry
 
     # Create specialized agents
-    crawler = SimpleAgent("crawler_1", ["crawl", "fetch"])
-    sifter = SimpleAgent("sifter_1", ["extract", "classify"])
-    reporter = SimpleAgent("reporter_1", ["analyze", "report"])
+    crawler = TestAgent("crawler_1", ["crawl", "fetch"])
+    sifter = TestAgent("sifter_1", ["extract", "classify"])
+    reporter = TestAgent("reporter_1", ["analyze", "report"])
 
-    # Register all agents
+    # Register all agents with the coordinator's registry
     for agent in [crawler, sifter, reporter]:
-        await registry.register(agent)
-
-    # Create coordinator
-    coordinator = Coordinator(registry, bus)
+        await registry.register_agent(
+            name=agent.name,
+            capabilities=agent.get_capabilities(),
+            agent_id=agent.agent_id
+        )
 
     # Test supervisor decision making
     print("Testing supervisor routing...")
@@ -193,22 +216,23 @@ async def test_end_to_end_flow():
     print("\n[TEST] End-to-End Agent Interaction")
     print("=" * 50)
 
-    # Create full system
-    bus = MessageBus()
-    registry = AgentRegistry(bus)
+    # Create coordinator with full system
+    coordinator = Coordinator()
+    registry = coordinator.registry
 
     # Create a chain of agents
     agents = [
-        SimpleAgent("fetcher", ["fetch_data"]),
-        SimpleAgent("processor", ["process_data"]),
-        SimpleAgent("validator", ["validate_results"]),
+        TestAgent("fetcher", ["fetch_data"]),
+        TestAgent("processor", ["process_data"]),
+        TestAgent("validator", ["validate_results"]),
     ]
 
     for agent in agents:
-        await registry.register(agent)
-
-    # Create coordinator
-    coordinator = Coordinator(registry, bus)
+        await registry.register_agent(
+            name=agent.name,
+            capabilities=agent.get_capabilities(),
+            agent_id=agent.agent_id
+        )
 
     # Execute a multi-step workflow
     print("Executing multi-step workflow...")
