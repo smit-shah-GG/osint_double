@@ -104,7 +104,7 @@ class PlanningOrchestrator(BaseAgent):
         """
         graph = StateGraph(OrchestratorState)
 
-        # Add workflow nodes
+        # Add workflow nodes (keeping async for proper execution)
         graph.add_node("analyze_objective", self.analyze_objective)
         graph.add_node("assign_agents", self.assign_agents)
         graph.add_node("coordinate_execution", self.coordinate_execution)
@@ -471,6 +471,7 @@ Respond with ONLY the JSON array, no other text."""
         findings = state.get("findings", [])
         refinement_count = state.get("refinement_count", 0)
         coverage = state.get("coverage_metrics", {})
+        max_refinements = state.get("max_refinements", self.max_refinements)
 
         self.logger.info(
             "Evaluating findings",
@@ -492,39 +493,48 @@ Respond with ONLY the JSON array, no other text."""
         if refinement_count > 2 and len(findings) > 2:
             diminishing_returns = self._check_diminishing_returns(findings, refinement_count)
 
-        # Adaptive routing logic
-        next_action = "end"  # Default to ending
+        # Adaptive routing logic - CRITICAL: Must always terminate
+        next_action = "synthesize"  # Default to synthesizing
 
-        # Decision tree
-        if refinement_count >= self.max_refinements:
+        # Decision tree - evaluate from most to least important
+        if refinement_count > max_refinements:
+            # Safety: hard limit exceeded
+            next_action = "synthesize"
+            reasoning = f"HARD LIMIT: Refinements exceeded {max_refinements}, synthesizing"
+
+        elif refinement_count >= max_refinements:
             # Hit refinement limit
             next_action = "synthesize"
-            reasoning = "Max refinements reached, synthesizing results"
+            reasoning = f"Max refinements {max_refinements} reached, synthesizing results"
+
+        elif diminishing_returns or refinement_count > 5:
+            # Diminishing returns or approaching limit
+            next_action = "synthesize"
+            reasoning = "Diminishing returns or approaching limit, synthesizing"
 
         elif signal_strength > self.signal_strength_threshold and not coverage_met:
-            # Strong signal but need more coverage
+            # Strong signal but need more coverage - only allow refinement if under limit
+            if refinement_count < max_refinements - 1:
+                next_action = "refine"
+                reasoning = f"Signal strength {signal_strength:.2f} but coverage incomplete"
+            else:
+                next_action = "synthesize"
+                reasoning = "Strong signal but at refinement limit, synthesizing"
+
+        elif coverage_met:
+            # Goals met
+            next_action = "synthesize"
+            reasoning = "Coverage targets met, synthesizing results"
+
+        elif refinement_count < 2:
+            # Allow limited exploration for very early stages
             next_action = "refine"
-            reasoning = f"Signal strength {signal_strength:.2f} but coverage incomplete"
-
-        elif signal_strength < 0.3 and refinement_count < 3:
-            # Weak signal, try different approach
-            next_action = "explore"
-            reasoning = f"Weak signal {signal_strength:.2f}, exploring alternatives"
-
-        elif diminishing_returns:
-            # Diminishing returns detected
-            next_action = "synthesize"
-            reasoning = "Diminishing returns detected, synthesizing"
-
-        elif coverage_met or refinement_count > 5:
-            # Goals met or approaching limit
-            next_action = "synthesize"
-            reasoning = "Coverage targets met or refinement approaching limit"
+            reasoning = f"Early stage, continuing refinement (count: {refinement_count}/{max_refinements})"
 
         else:
-            # Continue refining
-            next_action = "refine"
-            reasoning = f"Continuing refinement (count: {refinement_count}/{self.max_refinements})"
+            # Default to synthesizing for safety
+            next_action = "synthesize"
+            reasoning = "Default to synthesis for safety"
 
         evaluation_summary = f"Routing decision: {next_action}\n  {reasoning}"
         messages = state.get("messages", []) + [evaluation_summary]
@@ -752,10 +762,10 @@ Respond with ONLY the JSON array, no other text."""
                 "next_action": "explore",
             }
 
-            # Execute the graph
-            final_state = await asyncio.to_thread(
-                self.graph.invoke,
+            # Execute the graph asynchronously with thread ID for checkpointing
+            final_state = await self.graph.ainvoke(
                 initial_state,
+                config={"configurable": {"thread_id": self.agent_id}},
             )
 
             return {
