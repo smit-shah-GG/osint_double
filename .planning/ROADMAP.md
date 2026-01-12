@@ -75,15 +75,16 @@ Plans:
 ### Phase 4: News Crawler Implementation
 **Goal**: Deploy first crawler for news sources with filtering and metadata preservation
 **Depends on**: Phase 3
-**Research**: Likely (external APIs)
+**Research**: Complete ✓
 **Research topics**: News API options (NewsAPI, GDELT), RSS feed parsing, rate limiting strategies
-**Plans**: 4 plans
+**Plans**: 4 plans (2/4 complete)
+**Status**: In progress
 
 Plans:
-- [ ] 04-01: Implement NewsFeedAgent base functionality
-- [ ] 04-02: Integrate RSS feeds and news APIs
-- [ ] 04-03: Add relevance filtering and metadata extraction
-- [ ] 04-04: Create data routing to storage system
+- [x] 04-01: Implement NewsFeedAgent base functionality ✓
+- [x] 04-02: Integrate RSS feeds and NewsAPI ✓
+- [ ] 04-03: Add filtering and metadata extraction
+- [ ] 04-04: Create comprehensive testing and validation
 
 ### Phase 5: Extended Crawler Cohort
 **Goal**: Expand data acquisition with social media and document crawlers
