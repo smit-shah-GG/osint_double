@@ -1,14 +1,28 @@
-"""NewsFeedAgent: Async news crawler with rate limiting and RSS feed integration."""
+"""NewsFeedAgent: Async news crawler with rate limiting and RSS feed integration.
+
+Features:
+- Async HTTP client with connection pooling and proper rate limiting
+- Token bucket rate limiting with per-source overrides
+- RSS feed parsing via RSSCrawler (feedparser)
+- NewsAPI search integration for broader coverage
+- Investigation-driven fetching with context awareness
+- Source rotation to avoid hitting single sources too frequently
+- Unified normalization of articles from multiple sources
+"""
 
 import asyncio
 import time
+import random
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Optional, Any, Dict, List
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, AsyncRetrying
 from loguru import logger
 
 from osint_system.agents.crawlers.base_crawler import BaseCrawler
+from osint_system.agents.crawlers.sources.rss_crawler import RSSCrawler
+from osint_system.agents.crawlers.sources.api_crawler import NewsAPIClient
+from osint_system.config.news_sources import NEWS_SOURCES, NEWS_API_CONFIG
 
 
 class TokenBucketLimiter:
@@ -473,6 +487,392 @@ class NewsFeedAgent(BaseCrawler):
                 "total_count": len(input_data.get("sources", [])),
             }
 
+    async def fetch_investigation_data(
+        self, query: str, use_api: bool = True, use_rss: bool = True,
+        limit_rss_sources: Optional[int] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Unified fetcher implementing RSS-first strategy with API supplementation.
+
+        Core workflow for investigation-driven queries:
+        1. Fetch from configured RSS feeds first (more reliable/consistent)
+        2. Supplement with NewsAPI search for broader coverage
+        3. Normalize all articles to common format
+        4. Apply source rotation to avoid hitting single sources too frequently
+
+        Args:
+            query: Investigation query/search terms
+            use_api: Whether to use NewsAPI supplementation (default: True)
+            use_rss: Whether to use RSS feeds (default: True)
+            limit_rss_sources: Limit RSS sources to top N (by authority). None = all
+            **kwargs: Additional context to preserve in articles
+
+        Returns:
+            Dictionary containing:
+            - success: Boolean indicating if at least some data was fetched
+            - articles: List of normalized article dictionaries from both sources
+            - rss_articles: Count of articles from RSS
+            - api_articles: Count of articles from API
+            - total_articles: Total unique articles
+            - source_breakdown: Per-source article counts
+            - errors: List of any errors encountered
+
+        Example:
+            result = await agent.fetch_investigation_data(
+                query="Syria conflict",
+                investigation_context={"target": "middle_east_stability"}
+            )
+        """
+        articles = []
+        rss_count = 0
+        api_count = 0
+        source_breakdown = {}
+        errors = []
+
+        self.logger.info(
+            "Starting investigation data fetch",
+            query=query,
+            use_rss=use_rss,
+            use_api=use_api,
+        )
+
+        try:
+            # Step 1: Fetch from RSS feeds first (RSS-first strategy)
+            if use_rss:
+                try:
+                    rss_articles = await self._fetch_from_rss_feeds(
+                        query=query,
+                        limit_sources=limit_rss_sources,
+                        **kwargs
+                    )
+                    articles.extend(rss_articles)
+                    rss_count = len(rss_articles)
+
+                    # Count by source
+                    for article in rss_articles:
+                        source = article.get("source", {}).get("name", "Unknown")
+                        source_breakdown[source] = source_breakdown.get(source, 0) + 1
+
+                    self.logger.info(f"Fetched {rss_count} articles from RSS feeds")
+
+                except Exception as e:
+                    error_msg = f"Error fetching RSS feeds: {str(e)}"
+                    self.logger.error(error_msg)
+                    errors.append(error_msg)
+
+            # Step 2: Supplement with NewsAPI search
+            if use_api:
+                try:
+                    api_articles = await self._fetch_from_news_api(
+                        query=query,
+                        **kwargs
+                    )
+                    articles.extend(api_articles)
+                    api_count = len(api_articles)
+
+                    # Count by source
+                    for article in api_articles:
+                        source = article.get("source", {}).get("name", "Unknown")
+                        source_breakdown[source] = source_breakdown.get(source, 0) + 1
+
+                    self.logger.info(f"Fetched {api_count} articles from NewsAPI")
+
+                except Exception as e:
+                    error_msg = f"Error fetching from NewsAPI: {str(e)}"
+                    self.logger.warning(error_msg)
+                    errors.append(error_msg)
+
+            # Step 3: Deduplicate by URL to remove exact duplicates
+            unique_articles = self._deduplicate_articles(articles)
+
+            self.logger.info(
+                "Investigation data fetch complete",
+                total_articles=len(unique_articles),
+                rss_articles=rss_count,
+                api_articles=api_count,
+                after_dedup=len(unique_articles),
+            )
+
+            return {
+                "success": len(unique_articles) > 0,
+                "articles": unique_articles,
+                "rss_articles": rss_count,
+                "api_articles": api_count,
+                "total_articles": len(unique_articles),
+                "source_breakdown": source_breakdown,
+                "errors": errors,
+                "query": query,
+            }
+
+        except Exception as e:
+            error_msg = f"Critical error in fetch_investigation_data: {str(e)}"
+            self.logger.exception(error_msg)
+            return {
+                "success": False,
+                "articles": [],
+                "rss_articles": 0,
+                "api_articles": 0,
+                "total_articles": 0,
+                "source_breakdown": {},
+                "errors": [error_msg],
+                "query": query,
+            }
+
+    async def _fetch_from_rss_feeds(
+        self,
+        query: str,
+        limit_sources: Optional[int] = None,
+        **kwargs
+    ) -> list[Dict[str, Any]]:
+        """
+        Fetch articles from configured RSS feeds.
+
+        Implements source rotation to avoid hitting single sources too frequently.
+
+        Args:
+            query: Search/investigation query for context
+            limit_sources: Limit to top N sources by authority (None = all)
+            **kwargs: Context to preserve
+
+        Returns:
+            List of normalized articles from RSS feeds
+        """
+        articles = []
+        rss_crawler = RSSCrawler()
+
+        # Select sources with rotation
+        sources_to_fetch = self._select_rss_sources(limit=limit_sources)
+        self.logger.debug(f"Fetching from {len(sources_to_fetch)} RSS feeds")
+
+        # Fetch from all sources concurrently
+        fetch_tasks = []
+        for source_name in sources_to_fetch:
+            source_config = NEWS_SOURCES.get(source_name, {})
+            url = source_config.get("url")
+            if url:
+                fetch_tasks.append(
+                    self._fetch_rss_feed(rss_crawler, source_name, url)
+                )
+
+        results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+        # Process results
+        for source_name, result in zip(sources_to_fetch, results):
+            if isinstance(result, Exception):
+                self.logger.warning(
+                    f"Error fetching RSS from {source_name}: {str(result)}"
+                )
+                continue
+
+            if result.get("error"):
+                self.logger.warning(
+                    f"Error fetching RSS from {source_name}: {result['error']}"
+                )
+                continue
+
+            # Normalize articles
+            feed_articles = result.get("articles", [])
+            for article in feed_articles:
+                normalized = self._normalize_article(
+                    article,
+                    source_name=source_name,
+                    source_type="rss",
+                    **kwargs
+                )
+                articles.append(normalized)
+
+        return articles
+
+    async def _fetch_rss_feed(
+        self,
+        rss_crawler: RSSCrawler,
+        source_name: str,
+        url: str
+    ) -> Dict[str, Any]:
+        """
+        Fetch and parse a single RSS feed.
+
+        Args:
+            rss_crawler: RSSCrawler instance
+            source_name: Source identifier
+            url: Feed URL
+
+        Returns:
+            Result dictionary with parsed articles
+        """
+        try:
+            limiter = await self._get_rate_limiter(source_name)
+            await limiter.acquire()
+
+            result = await rss_crawler.parse_feed(url)
+            return result
+
+        except Exception as e:
+            return {
+                "error": str(e),
+                "source": source_name,
+                "articles": [],
+            }
+
+    async def _fetch_from_news_api(
+        self,
+        query: str,
+        **kwargs
+    ) -> list[Dict[str, Any]]:
+        """
+        Fetch articles from NewsAPI using search query.
+
+        Args:
+            query: Search query
+            **kwargs: Context to preserve
+
+        Returns:
+            List of normalized articles from NewsAPI
+        """
+        articles = []
+
+        try:
+            async with NewsAPIClient() as client:
+                # Search with pagination (max 2 pages to respect rate limits)
+                result = await client.search_articles_paginated(
+                    query=query,
+                    max_pages=2,
+                )
+
+                # Normalize articles
+                for article in result:
+                    normalized = self._normalize_article(
+                        article,
+                        source_name=article.get("source", {}).get("name", "NewsAPI"),
+                        source_type="api",
+                        **kwargs
+                    )
+                    articles.append(normalized)
+
+        except Exception as e:
+            self.logger.warning(f"Error fetching from NewsAPI: {str(e)}")
+
+        return articles
+
+    def _select_rss_sources(self, limit: Optional[int] = None) -> list[str]:
+        """
+        Select RSS sources with rotation to avoid repeated hits.
+
+        Implements source rotation by randomizing selection.
+
+        Args:
+            limit: Limit to top N sources by authority
+
+        Returns:
+            List of source names to fetch from
+        """
+        # Sort by authority level descending
+        sorted_sources = sorted(
+            NEWS_SOURCES.items(),
+            key=lambda x: x[1].get("authority_level", 3),
+            reverse=True
+        )
+
+        # Select top N if limit specified
+        if limit:
+            selected = sorted_sources[:limit]
+        else:
+            selected = sorted_sources
+
+        # Randomize order to rotate through sources
+        source_names = [name for name, _ in selected]
+        random.shuffle(source_names)
+
+        return source_names
+
+    def _normalize_article(
+        self,
+        article: Dict[str, Any],
+        source_name: str,
+        source_type: str,
+        **context
+    ) -> Dict[str, Any]:
+        """
+        Normalize article to standard format across RSS and API sources.
+
+        Converts articles from different sources to consistent schema for
+        downstream processing.
+
+        Args:
+            article: Article from RSS or API
+            source_name: Source identifier
+            source_type: 'rss' or 'api'
+            **context: Additional context to preserve
+
+        Returns:
+            Normalized article dictionary
+        """
+        # Extract common fields
+        title = article.get("title", "")
+        url = article.get("url", "") or article.get("link", "")
+        published = article.get("published_date", "") or article.get("published", "")
+        authors = article.get("authors", []) or article.get("author", [])
+        if isinstance(authors, str):
+            authors = [authors] if authors else []
+
+        content = article.get("content", "")
+        if not content:
+            # Use description/summary as fallback
+            content = article.get("description", "") or article.get("summary", "")
+
+        # Build normalized article
+        normalized = {
+            "title": title,
+            "url": url,
+            "published_date": published,
+            "authors": authors,
+            "content": content,
+            "source": {
+                "id": source_name,
+                "name": article.get("source", {}).get("name", source_name)
+                if isinstance(article.get("source"), dict)
+                else source_name,
+                "type": source_type,
+            },
+            "metadata": {
+                "source_type": source_type,
+                "authority_level": NEWS_SOURCES.get(source_name, {}).get("authority_level", 3),
+                "topic_specialization": NEWS_SOURCES.get(source_name, {}).get("topic_specialization", ""),
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            },
+            **context,
+        }
+
+        return normalized
+
+    def _deduplicate_articles(self, articles: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+        """
+        Deduplicate articles by URL to remove exact duplicates.
+
+        Simple URL-based deduplication (more sophisticated semantic dedup
+        can be added later).
+
+        Args:
+            articles: List of articles to deduplicate
+
+        Returns:
+            List of unique articles
+        """
+        seen_urls = set()
+        unique = []
+
+        for article in articles:
+            url = article.get("url", "")
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                unique.append(article)
+            elif not url:
+                # Include articles without URLs (they might have other unique identifiers)
+                unique.append(article)
+
+        return unique
+
     def get_capabilities(self) -> list[str]:
         """
         Return NewsFeedAgent capabilities.
@@ -483,8 +883,12 @@ class NewsFeedAgent(BaseCrawler):
         capabilities = super().get_capabilities()
         capabilities.extend([
             "rss_feed_crawling",
+            "news_api_search",
+            "investigation_data_fetching",
             "async_http_fetching",
             "rate_limiting",
             "retry_with_backoff",
+            "multi_source_integration",
+            "article_normalization",
         ])
         return capabilities
