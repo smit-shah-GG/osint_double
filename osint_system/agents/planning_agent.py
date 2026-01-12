@@ -337,6 +337,8 @@ Respond with ONLY the JSON array, no other text."""
         considering suggested sources and agent availability. Tasks are added to
         queue with priority scoring.
 
+        Also triggers crawler execution for news-related subtasks via message bus.
+
         Args:
             state: Current orchestrator state
 
@@ -379,6 +381,9 @@ Respond with ONLY the JSON array, no other text."""
                     task_id=subtask["id"]
                 )
 
+        # Trigger crawler execution for news-related subtasks
+        await self._trigger_crawler_execution(state)
+
         # Distribute tasks to agents based on capabilities
         await self.distribute_tasks()
 
@@ -399,6 +404,61 @@ Respond with ONLY the JSON array, no other text."""
             "agent_assignments": assignments,
             "messages": state.get("messages", []) + [reasoning],
         }
+
+    async def _trigger_crawler_execution(self, state: OrchestratorState) -> None:
+        """
+        Trigger crawler execution for news-related subtasks.
+
+        Publishes investigation.start message to message bus if:
+        - Any subtask suggests "news" as a source
+        - Message bus is available
+
+        Args:
+            state: Current orchestrator state
+        """
+        if not self.message_bus:
+            self.logger.debug("Message bus not available, skipping crawler trigger")
+            return
+
+        objective = state.get("objective", "")
+        subtasks = state.get("subtasks", [])
+
+        # Check if any subtask needs news crawling
+        needs_news_crawling = any(
+            "news" in subtask.get("suggested_sources", [])
+            for subtask in subtasks
+        )
+
+        if not needs_news_crawling:
+            self.logger.debug("No news crawling needed for current subtasks")
+            return
+
+        # Generate investigation ID (use objective hash for determinism)
+        import hashlib
+        investigation_id = hashlib.md5(objective.encode()).hexdigest()[:16]
+
+        # Extract query from objective (simplified - could use LLM for better extraction)
+        query = objective[:200]  # Use first 200 chars as query
+
+        try:
+            # Publish investigation start event
+            await self.message_bus.publish(
+                "investigation.start",
+                {
+                    "investigation_id": investigation_id,
+                    "query": query,
+                    "objective": objective,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+
+            self.logger.info(
+                f"Triggered crawler execution for investigation {investigation_id}",
+                query=query[:50]
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to trigger crawler execution: {e}", exc_info=True)
 
     async def distribute_tasks(self):
         """
