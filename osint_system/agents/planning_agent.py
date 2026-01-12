@@ -23,6 +23,7 @@ from osint_system.orchestration.refinement.analysis import (
     CoverageMetrics,
     check_diminishing_returns,
 )
+from osint_system.orchestration.refinement.iterative import RefinementEngine
 from osint_system.config.settings import settings
 
 
@@ -78,6 +79,9 @@ class PlanningOrchestrator(BaseAgent):
         self.task_queue = TaskQueue()
         self.coverage_metrics = None  # Initialized per investigation
         self.previous_findings = []  # For diminishing returns detection
+
+        # Refinement engine for iterative improvements
+        self.refinement_engine = RefinementEngine(max_iterations=max_refinements)
 
         # Build the LangGraph workflow
         self.graph = self._build_graph()
@@ -691,7 +695,9 @@ Respond with ONLY the JSON array, no other text."""
         """
         Refine the investigation approach based on findings so far.
 
-        Updates subtasks, reassigns agents, and prepares for next iteration.
+        Uses RefinementEngine to analyze findings, generate follow-up questions,
+        and create targeted subtasks for deeper investigation. Tracks refinement
+        history for transparency.
 
         Args:
             state: Current orchestrator state
@@ -701,20 +707,55 @@ Respond with ONLY the JSON array, no other text."""
         """
         refinement_count = state.get("refinement_count", 0) + 1
         findings = state.get("findings", [])
+        objective = state.get("objective", "")
+        coverage_metrics = state.get("coverage_metrics", {})
+        signal_strength = state.get("signal_strength", 0.0)
 
         self.logger.info(f"Refining approach (iteration {refinement_count})")
 
-        # Generate refinement strategy
-        refinement_summary = (
-            f"Refinement iteration {refinement_count}: Analyzing {len(findings)} findings, "
-            f"adapting approach based on discoveries"
+        # Use RefinementEngine to analyze and refine
+        refinement_result = self.refinement_engine.refine_approach(
+            objective=objective,
+            findings=findings,
+            current_iteration=refinement_count,
+            coverage_metrics=coverage_metrics,
+            signal_strength=signal_strength
         )
 
+        # Update subtasks with new targeted tasks
+        current_subtasks = state.get("subtasks", [])
+        new_subtasks = refinement_result.get("new_subtasks", [])
+        all_subtasks = current_subtasks + new_subtasks
+
+        # Build refinement summary
+        refinement_summary = (
+            f"Refinement iteration {refinement_count}:\n"
+            f"  Findings analyzed: {len(findings)}\n"
+            f"  {refinement_result.get('reasoning', 'Analysis complete')}\n"
+        )
+
+        if new_subtasks:
+            refinement_summary += f"  Created {len(new_subtasks)} targeted subtasks\n"
+            refinement_summary += f"  Follow-up questions:\n"
+            for q in refinement_result.get("follow_up_questions", [])[:3]:
+                refinement_summary += f"    - {q}\n"
+
         messages = state.get("messages", []) + [refinement_summary]
+
+        # Store refinement history in state for transparency
+        refinement_history = state.get("refinement_history", [])
+        refinement_history.append({
+            "iteration": refinement_count,
+            "reasoning": refinement_result.get("reasoning"),
+            "subtasks_created": len(new_subtasks),
+            "follow_ups": refinement_result.get("follow_up_questions", [])
+        })
 
         return {
             **state,
             "refinement_count": refinement_count,
+            "subtasks": all_subtasks,
+            "refinement_history": refinement_history,
             "messages": messages,
         }
 
