@@ -239,20 +239,33 @@ class RSSCrawler:
         Returns:
             ISO 8601 formatted datetime string, or None if unparseable
         """
-        # Try standard feedparser date field first
-        if "published_parsed" in entry and entry.get("published_parsed"):
-            try:
-                dt = datetime(*entry["published_parsed"][:6], tzinfo=timezone.utc)
-                return dt.isoformat()
-            except (TypeError, ValueError):
-                pass
+        # Try standard feedparser parsed time tuples first
+        parsed_fields = ["published_parsed", "updated_parsed", "created_parsed"]
+        for field in parsed_fields:
+            if field in entry and entry.get(field):
+                try:
+                    dt = datetime(*entry[field][:6], tzinfo=timezone.utc)
+                    self.logger.debug(f"Date found in {field}: {dt.isoformat()}")
+                    return dt.isoformat()
+                except (TypeError, ValueError):
+                    pass
 
-        # Fallback to other date fields
+        # Expanded list of date fields to check (handles more RSS variations)
         date_sources = [
             entry.get("published"),
+            entry.get("pubDate"),  # Common RSS 2.0 field
             entry.get("updated"),
+            entry.get("dc:date"),  # Dublin Core namespace
+            entry.get("created"),
             entry.get("date"),
+            entry.get("issued"),  # Some Atom feeds
+            entry.get("modified"),  # Some feeds use this
         ]
+
+        # Also check for namespaced fields
+        for key in entry.keys():
+            if "date" in key.lower() and key not in ["published", "updated", "date"]:
+                date_sources.append(entry.get(key))
 
         for date_str in date_sources:
             if not date_str:
@@ -263,15 +276,18 @@ class RSSCrawler:
                 # Ensure timezone-aware
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
+                self.logger.debug(f"Date parsed from string: {dt.isoformat()}")
                 return dt.isoformat()
             except (ValueError, TypeError, AttributeError):
                 continue
 
+        # Last resort: use current time but log it
         self.logger.debug(
-            "Could not parse date for entry",
+            "Could not parse date for entry, using current time",
             title=entry.get("title", "Unknown"),
         )
-        return None
+        # Return current time as fallback
+        return datetime.now(timezone.utc).isoformat()
 
     def get_feed_metadata(self, parsed_feed: dict) -> dict:
         """
