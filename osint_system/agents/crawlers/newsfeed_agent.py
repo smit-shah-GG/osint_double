@@ -22,6 +22,8 @@ from loguru import logger
 from osint_system.agents.crawlers.base_crawler import BaseCrawler
 from osint_system.agents.crawlers.sources.rss_crawler import RSSCrawler
 from osint_system.agents.crawlers.sources.api_crawler import NewsAPIClient
+from osint_system.agents.crawlers.deduplication.dedup_engine import DeduplicationEngine, Article as DedupArticle
+from osint_system.agents.crawlers.extractors.metadata_parser import MetadataParser
 from osint_system.config.news_sources import NEWS_SOURCES, NEWS_API_CONFIG
 
 
@@ -141,6 +143,10 @@ class NewsFeedAgent(BaseCrawler):
 
         # Initialize rate limiters for configured sources
         self._init_rate_limiters()
+
+        # Initialize deduplication and metadata extraction components
+        self.dedup_engine = DeduplicationEngine(semantic_threshold=0.85)
+        self.metadata_parser = MetadataParser()
 
         self.logger.info(
             "NewsFeedAgent initialized",
@@ -490,6 +496,7 @@ class NewsFeedAgent(BaseCrawler):
     async def fetch_investigation_data(
         self, query: str, use_api: bool = True, use_rss: bool = True,
         limit_rss_sources: Optional[int] = None,
+        exhaustive_mode: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -498,29 +505,33 @@ class NewsFeedAgent(BaseCrawler):
         Core workflow for investigation-driven queries:
         1. Fetch from configured RSS feeds first (more reliable/consistent)
         2. Supplement with NewsAPI search for broader coverage
-        3. Normalize all articles to common format
-        4. Apply source rotation to avoid hitting single sources too frequently
+        3. Extract comprehensive metadata for each article
+        4. Apply three-layer deduplication (URL, content hash, semantic)
+        5. Return deduplicated articles with complete metadata
 
         Args:
             query: Investigation query/search terms
             use_api: Whether to use NewsAPI supplementation (default: True)
             use_rss: Whether to use RSS feeds (default: True)
             limit_rss_sources: Limit RSS sources to top N (by authority). None = all
+            exhaustive_mode: If True, returns all relevant content regardless of age
             **kwargs: Additional context to preserve in articles
 
         Returns:
             Dictionary containing:
             - success: Boolean indicating if at least some data was fetched
-            - articles: List of normalized article dictionaries from both sources
+            - articles: List of deduplicated articles with full metadata
             - rss_articles: Count of articles from RSS
             - api_articles: Count of articles from API
-            - total_articles: Total unique articles
+            - total_articles: Total unique articles after deduplication
+            - dedup_stats: Deduplication statistics
             - source_breakdown: Per-source article counts
             - errors: List of any errors encountered
 
         Example:
             result = await agent.fetch_investigation_data(
                 query="Syria conflict",
+                exhaustive_mode=True,
                 investigation_context={"target": "middle_east_stability"}
             )
         """
@@ -583,15 +594,63 @@ class NewsFeedAgent(BaseCrawler):
                     self.logger.warning(error_msg)
                     errors.append(error_msg)
 
-            # Step 3: Deduplicate by URL to remove exact duplicates
-            unique_articles = self._deduplicate_articles(articles)
+            # Step 3: Extract comprehensive metadata for each article
+            self.logger.debug("Extracting metadata for all articles")
+            for article in articles:
+                # Parse metadata
+                metadata = self.metadata_parser.parse(
+                    url=article.get("url", ""),
+                    content=article.get("content", ""),
+                    html=article.get("html"),  # If available from source
+                    published_date=article.get("published_date")
+                )
+
+                # Merge metadata into article
+                article["metadata"] = {
+                    **article.get("metadata", {}),
+                    **metadata.to_dict()
+                }
+
+            # Step 4: Apply three-layer deduplication
+            self.logger.info("Applying three-layer deduplication")
+
+            # Convert to DedupArticle format for deduplication
+            dedup_articles = []
+            for article in articles:
+                dedup_article = DedupArticle(
+                    url=article.get("url", ""),
+                    title=article.get("title", ""),
+                    content=article.get("content", ""),
+                    metadata=article.get("metadata", {}),
+                    published_date=article.get("published_date"),
+                    source=article.get("source", {}).get("name", "Unknown")
+                )
+                dedup_articles.append(dedup_article)
+
+            # Apply deduplication
+            unique_dedup_articles, dedup_stats = self.dedup_engine.deduplicate_articles(dedup_articles)
+
+            # Convert back to dict format with complete metadata
+            unique_articles = []
+            for dedup_article in unique_dedup_articles:
+                # Find original article with all fields
+                for orig_article in articles:
+                    if orig_article.get("url") == dedup_article.url:
+                        unique_articles.append(orig_article)
+                        break
+
+            # If exhaustive mode, don't filter by age (returns everything relevant)
+            if not exhaustive_mode:
+                # In normal mode, could add age filtering here if desired
+                pass
 
             self.logger.info(
                 "Investigation data fetch complete",
-                total_articles=len(unique_articles),
+                total_articles_fetched=len(articles),
+                unique_articles=len(unique_articles),
                 rss_articles=rss_count,
                 api_articles=api_count,
-                after_dedup=len(unique_articles),
+                dedup_stats=dedup_stats.to_dict() if dedup_stats else None,
             )
 
             return {
@@ -600,9 +659,11 @@ class NewsFeedAgent(BaseCrawler):
                 "rss_articles": rss_count,
                 "api_articles": api_count,
                 "total_articles": len(unique_articles),
+                "dedup_stats": dedup_stats.to_dict() if dedup_stats else None,
                 "source_breakdown": source_breakdown,
                 "errors": errors,
                 "query": query,
+                "exhaustive_mode": exhaustive_mode,
             }
 
         except Exception as e:
