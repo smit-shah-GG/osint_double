@@ -77,8 +77,45 @@ class RSSCrawler:
                 else "url",
             )
 
-            # feedparser.parse() handles both URLs and content
-            parsed = feedparser.parse(feed_url_or_content)
+            # Special handling for Reuters encoding issue
+            parsed = None
+            if isinstance(feed_url_or_content, str) and "reuters" in feed_url_or_content.lower():
+                try:
+                    # For Reuters, fetch raw content and decode properly
+                    import httpx
+                    if feed_url_or_content.startswith("http"):
+                        async with httpx.AsyncClient() as client:
+                            response = await client.get(feed_url_or_content)
+                            # Try UTF-8 first, then fallback to latin-1
+                            try:
+                                content = response.content.decode('utf-8')
+                            except UnicodeDecodeError:
+                                content = response.content.decode('latin-1')
+                            parsed = feedparser.parse(content)
+                            self.logger.debug("Reuters feed parsed with explicit encoding")
+                except (AttributeError, httpx.HTTPError) as e:
+                    self.logger.debug(f"Reuters special handling failed, falling back: {e}")
+
+            # Regular parsing if not Reuters or special handling failed
+            if parsed is None:
+                try:
+                    # feedparser.parse() handles both URLs and content
+                    parsed = feedparser.parse(feed_url_or_content)
+                except AttributeError as e:
+                    # Handle "object has no attribute 'encoding'" error
+                    if "encoding" in str(e):
+                        self.logger.warning(f"Encoding error in feedparser, attempting workaround: {e}")
+                        # Try parsing with a simple string workaround
+                        if isinstance(feed_url_or_content, str):
+                            # If it's a URL, skip it for now
+                            if feed_url_or_content.startswith("http"):
+                                raise Exception(f"Feed parsing failed due to encoding: {e}")
+                            # If it's content, try wrapping it
+                            parsed = feedparser.parse(feed_url_or_content.encode('utf-8'))
+                        else:
+                            raise
+                    else:
+                        raise
 
             # Check for critical parsing errors
             if parsed.bozo and parsed.bozo_exception:

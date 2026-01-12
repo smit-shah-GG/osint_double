@@ -739,15 +739,28 @@ class NewsFeedAgent(BaseCrawler):
         # Process results
         for source_name, result in zip(sources_to_fetch, results):
             if isinstance(result, Exception):
-                self.logger.warning(
-                    f"Error fetching RSS from {source_name}: {str(result)}"
-                )
+                # Log at debug level for known Reuters encoding issue
+                if "encoding" in str(result).lower() and "reuters" in source_name.lower():
+                    self.logger.debug(
+                        f"Reuters feed encoding issue (known): {str(result)}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Error fetching RSS from {source_name}: {str(result)}"
+                    )
                 continue
 
             if result.get("error"):
-                self.logger.warning(
-                    f"Error fetching RSS from {source_name}: {result['error']}"
-                )
+                # Log at debug level for known Reuters encoding issue
+                error_msg = result['error']
+                if "encoding" in str(error_msg).lower() and "reuters" in source_name.lower():
+                    self.logger.debug(
+                        f"Reuters feed encoding issue (known): {error_msg}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Error fetching RSS from {source_name}: {error_msg}"
+                    )
                 continue
 
             # Normalize articles
