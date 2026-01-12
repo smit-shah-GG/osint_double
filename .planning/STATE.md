@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 4 of 10 (News Crawler Implementation)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-13 — Completed 04-03-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-13 — Completed 04-04-PLAN.md
 
-Progress: ████████████████████████████████ 32%
+Progress: █████████████████████████████████ 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
-- Average duration: 37.0 min
-- Total execution time: 519 min
+- Total plans completed: 15
+- Average duration: 37.3 min
+- Total execution time: 554 min
 
 **By Phase:**
 
@@ -30,7 +30,7 @@ Progress: ███████████████████████�
 | 01-foundation | 4/4 | 24 min | 6 min |
 | 02-base-agent-architecture | 4/4 | 330 min | 82.5 min |
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
-| 04-news-crawler | 3/4 | 19 min | 6.3 min |
+| 04-news-crawler | 4/4 | 54 min | 13.5 min |
 
 **Recent Trend:**
 - Last 5 plans: —
@@ -77,6 +77,11 @@ Recent decisions affecting current work:
 - 0.85 similarity threshold for semantic deduplication
 - Exhaustive mode returns all relevant content regardless of age
 - Complete metadata extraction including credibility and geographic context
+- Investigation-scoped storage with investigation_id as primary key
+- In-memory storage with optional JSON persistence for beta
+- Message bus topics: investigation.start, crawler.fetch, crawler.complete, crawler.failed
+- Automatic crawler triggering when Planning Agent detects news-related subtasks
+- URL-based indexing for O(1) duplicate detection across investigations
 
 ### Deferred Issues
 
@@ -89,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 04-03-PLAN.md
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
