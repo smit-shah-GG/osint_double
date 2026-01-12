@@ -225,6 +225,18 @@ class MetadataParser:
 
     def _normalize_datetime(self, dt: datetime) -> datetime:
         """Normalize datetime to UTC with timezone info."""
+        # Handle string dates from RSS feeds
+        if isinstance(dt, str):
+            try:
+                from dateutil import parser
+                dt = parser.parse(dt)
+            except:
+                # If parsing fails, return None
+                return None
+
+        if dt is None:
+            return None
+
         if dt.tzinfo is None:
             # Assume UTC if no timezone
             return dt.replace(tzinfo=timezone.utc)
@@ -232,6 +244,8 @@ class MetadataParser:
 
     def _calculate_age_hours(self, published_date: datetime) -> float:
         """Calculate content age in hours."""
+        if published_date is None:
+            return None
         now = datetime.now(timezone.utc)
         age = now - published_date
         return age.total_seconds() / 3600
