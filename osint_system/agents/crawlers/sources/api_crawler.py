@@ -52,8 +52,9 @@ class NewsAPIClient:
 
         if not self.api_key:
             # Don't raise - allow initialization without key for testing
-            logger.warning(
-                "NewsAPIClient initialized without API key. "
+            # Debug level since it's optional (RSS feeds work without it)
+            logger.debug(
+                "NewsAPIClient initialized without API key (optional). "
                 "Set NEWS_API_KEY environment variable to enable API calls."
             )
 

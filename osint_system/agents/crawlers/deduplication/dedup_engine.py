@@ -96,7 +96,8 @@ class DeduplicationEngine:
         logger.info(f"DeduplicationEngine initialized (semantic_threshold={semantic_threshold}, "
                    f"semhash_available={SEMHASH_AVAILABLE})")
         if not SEMHASH_AVAILABLE:
-            logger.warning("SemHash library not available - using fallback implementation")
+            # Info level since it's optional
+            logger.info("SemHash library not available - using fallback implementation")
 
     def _compute_content_hash(self, content: str) -> str:
         """Compute SHA256 hash of content.

@@ -31,6 +31,24 @@ uv sync
 python main.py
 ```
 
+### Optional Dependencies
+
+The system includes several optional dependencies that enhance functionality but are not required for basic operation:
+
+#### SemHash Library (Semantic Deduplication)
+- **Purpose**: Provides advanced semantic similarity detection for article deduplication
+- **Status**: Optional - system uses a fallback implementation if not installed
+- **To Enable**: `pip install semhash`
+- **Note**: Without SemHash, the system still performs URL-based and content hash deduplication
+
+#### NewsAPI (Additional News Sources)
+- **Purpose**: Supplements RSS feeds with additional news articles from NewsAPI
+- **Status**: Optional - RSS feeds work without it
+- **To Enable**:
+  1. Get a free API key from [newsapi.org](https://newsapi.org)
+  2. Set environment variable: `export NEWS_API_KEY=your_api_key_here`
+- **Note**: The system fetches news from 17 configured RSS sources without NewsAPI
+
 For detailed documentation, see the sections below.
 
 ---
