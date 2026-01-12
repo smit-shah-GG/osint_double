@@ -1089,6 +1089,8 @@ class NewsFeedAgent(BaseCrawler):
                 )
                 return
 
+            # ArticleStore.retrieve_by_investigation() returns a dictionary with 'articles' key,
+            # not a list. Always access result['articles'] to get the actual article list.
             articles = result["articles"]
 
             # Store articles

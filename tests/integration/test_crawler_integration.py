@@ -349,6 +349,9 @@ async def test_article_storage_and_retrieval():
     # Retrieve articles
     result = await article_store.retrieve_by_investigation("test_inv_001")
 
+    # Ensure result is a dictionary with 'articles' key, not a list (UAT-002 fix)
+    assert isinstance(result, dict), "ArticleStore should return a dictionary, not a list"
+    assert "articles" in result, "Result must have 'articles' key"
     assert result["total_articles"] == 1
     assert len(result["articles"]) == 1
     assert result["articles"][0]["title"] == "Test Article"
