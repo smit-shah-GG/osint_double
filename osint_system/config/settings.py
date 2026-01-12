@@ -16,6 +16,10 @@ class Settings(BaseSettings):
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_format: Log output format (json for production, console for dev)
         interactive_mode: Enable interactive CLI features
+        news_api_key: NewsAPI.org API key (optional)
+        reddit_client_id: Reddit application client ID
+        reddit_client_secret: Reddit application client secret
+        reddit_user_agent: Reddit user agent string
     """
 
     gemini_api_key: str = Field(..., description="Google Gemini API key")
@@ -42,6 +46,22 @@ class Settings(BaseSettings):
     interactive_mode: bool = Field(
         default=True,
         description="Enable interactive CLI features"
+    )
+    news_api_key: str | None = Field(
+        default=None,
+        description="NewsAPI.org API key for news fetching"
+    )
+    reddit_client_id: str = Field(
+        default="",
+        description="Reddit application client ID"
+    )
+    reddit_client_secret: str = Field(
+        default="",
+        description="Reddit application client secret"
+    )
+    reddit_user_agent: str = Field(
+        default="osint_system:v0.1.0",
+        description="Reddit user agent (format: app:version (by /u/username))"
     )
 
     model_config = {
