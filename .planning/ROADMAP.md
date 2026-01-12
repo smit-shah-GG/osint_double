@@ -90,15 +90,18 @@ Plans:
 ### Phase 5: Extended Crawler Cohort
 **Goal**: Expand data acquisition with social media and document crawlers
 **Depends on**: Phase 4
-**Research**: Likely (multiple APIs)
+**Research**: Complete ✓
 **Research topics**: Reddit API authentication, web scraping best practices, document parsing libraries
-**Plans**: 4 plans
+**Plans**: 6 plans (1/6 complete)
+**Status**: In progress
 
 Plans:
-- [ ] 05-01: Implement SocialMediaAgent for Reddit
-- [ ] 05-02: Create DocumentScraperAgent for PDFs/web
-- [ ] 05-03: Build crawler coordination system
-- [ ] 05-04: Implement rate limiting and politeness policies
+- [x] 05-01: Reddit crawler setup ✓
+- [ ] 05-02: Reddit data collection and integration
+- [ ] 05-03: Document scraper setup
+- [ ] 05-04: Document parsing and extraction
+- [ ] 05-05: Crawler coordination system
+- [ ] 05-06: Cross-source entity tracking
 
 ### Phase 6: Fact Extraction Pipeline
 **Goal**: Extract discrete, verifiable facts from raw text with structured output
