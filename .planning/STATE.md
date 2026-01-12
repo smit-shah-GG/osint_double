@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 4 of 10 (News Crawler Implementation)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-12 — Completed 04-02-PLAN.md
+Last activity: 2026-01-13 — Completed 04-03-PLAN.md
 
-Progress: ██████████████████████████████ 30%
+Progress: ████████████████████████████████ 32%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 39.2 min
-- Total execution time: 512 min
+- Total plans completed: 14
+- Average duration: 37.0 min
+- Total execution time: 519 min
 
 **By Phase:**
 
@@ -30,7 +30,7 @@ Progress: ███████████████████████�
 | 01-foundation | 4/4 | 24 min | 6 min |
 | 02-base-agent-architecture | 4/4 | 330 min | 82.5 min |
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
-| 04-news-crawler | 2/4 | 12 min | 6 min |
+| 04-news-crawler | 3/4 | 19 min | 6.3 min |
 
 **Recent Trend:**
 - Last 5 plans: —
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - Limit hierarchy to 2 levels to prevent complexity explosion
 - Track conflicts without attempting premature resolution
 - Hard limit of 7 refinement iterations to prevent infinite loops
+- Three-layer deduplication: URL, content hash, semantic similarity
+- 0.85 similarity threshold for semantic deduplication
+- Exhaustive mode returns all relevant content regardless of age
+- Complete metadata extraction including credibility and geographic context
 
 ### Deferred Issues
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-12
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-01-13
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
