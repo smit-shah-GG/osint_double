@@ -25,6 +25,8 @@ from osint_system.agents.crawlers.sources.api_crawler import NewsAPIClient
 from osint_system.agents.crawlers.deduplication.dedup_engine import DeduplicationEngine, Article as DedupArticle
 from osint_system.agents.crawlers.extractors.metadata_parser import MetadataParser
 from osint_system.config.news_sources import NEWS_SOURCES, NEWS_API_CONFIG
+from osint_system.data_management.article_store import ArticleStore
+from osint_system.agents.communication.bus import MessageBus
 
 
 class TokenBucketLimiter:
@@ -112,6 +114,8 @@ class NewsFeedAgent(BaseCrawler):
         max_retries: int = 3,
         mcp_enabled: bool = False,
         mcp_server_command: Optional[list[str]] = None,
+        article_store: Optional[ArticleStore] = None,
+        message_bus: Optional[MessageBus] = None,
     ):
         """
         Initialize NewsFeedAgent with async infrastructure.
@@ -125,6 +129,8 @@ class NewsFeedAgent(BaseCrawler):
             max_retries: Maximum retry attempts for transient failures (default: 3)
             mcp_enabled: Whether to enable MCP client for tool access
             mcp_server_command: Command to start MCP server
+            article_store: Optional ArticleStore instance for persistence
+            message_bus: Optional MessageBus instance for A2A communication
         """
         super().__init__(
             name="NewsFeedAgent",
@@ -148,12 +154,19 @@ class NewsFeedAgent(BaseCrawler):
         self.dedup_engine = DeduplicationEngine(semantic_threshold=0.85)
         self.metadata_parser = MetadataParser()
 
+        # Initialize storage and message bus
+        self.article_store = article_store or ArticleStore()
+        self.message_bus = message_bus or MessageBus()
+        self._message_subscribed = False
+
         self.logger.info(
             "NewsFeedAgent initialized",
             default_rate_limit=default_rate_limit,
             http_timeout=http_timeout,
             max_retries=max_retries,
             num_sources=len(self.source_configs),
+            storage_enabled=article_store is not None,
+            message_bus_enabled=message_bus is not None,
         )
 
     def _init_rate_limiters(self) -> None:
@@ -168,7 +181,7 @@ class NewsFeedAgent(BaseCrawler):
             )
 
     async def __aenter__(self):
-        """Async context manager entry - initialize HTTP client and MCP."""
+        """Async context manager entry - initialize HTTP client, MCP, and message bus."""
         # Initialize HTTP client with connection pooling and proper headers
         limits = httpx.Limits(max_keepalive_connections=5, max_connections=20)
         self.http_client = httpx.AsyncClient(
@@ -179,6 +192,11 @@ class NewsFeedAgent(BaseCrawler):
             },
         )
         self.logger.debug("HTTP client initialized with connection pooling")
+
+        # Subscribe to message bus topics
+        if not self._message_subscribed:
+            await self._subscribe_to_topics()
+            self._message_subscribed = True
 
         # Initialize MCP if enabled
         await super().__aenter__()
@@ -934,6 +952,201 @@ class NewsFeedAgent(BaseCrawler):
 
         return unique
 
+    async def _subscribe_to_topics(self) -> None:
+        """
+        Subscribe to message bus topics for investigation requests.
+
+        Subscribes to:
+        - investigation.start: New investigation initiated
+        - crawler.fetch: Explicit fetch request for this crawler
+        """
+        # Subscribe to investigation start events
+        self.message_bus.subscribe_to_pattern(
+            subscriber_name=f"NewsFeedAgent-{self.agent_id}",
+            pattern="investigation.start",
+            callback=self.handle_investigation_start
+        )
+
+        # Subscribe to explicit crawler fetch requests
+        self.message_bus.subscribe_to_pattern(
+            subscriber_name=f"NewsFeedAgent-{self.agent_id}-fetch",
+            pattern="crawler.fetch",
+            callback=self.handle_fetch_request
+        )
+
+        self.logger.info("Subscribed to message bus topics")
+
+    async def handle_investigation_start(self, message: dict) -> None:
+        """
+        Handle investigation.start message.
+
+        Automatically triggers fetching when a new investigation starts.
+
+        Args:
+            message: Message with investigation details
+        """
+        try:
+            payload = message.get("payload", {})
+            investigation_id = payload.get("investigation_id")
+            query = payload.get("query")
+            objective = payload.get("objective", "")
+
+            if not investigation_id or not query:
+                self.logger.warning("Investigation start message missing required fields")
+                return
+
+            self.logger.info(
+                f"Handling investigation start",
+                investigation_id=investigation_id,
+                query=query
+            )
+
+            # Trigger fetch
+            await self._execute_investigation_fetch(
+                investigation_id=investigation_id,
+                query=query,
+                objective=objective
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error handling investigation start: {e}", exc_info=True)
+
+    async def handle_fetch_request(self, message: dict) -> None:
+        """
+        Handle crawler.fetch message.
+
+        Explicit request to fetch articles for an investigation.
+
+        Args:
+            message: Message with fetch parameters
+        """
+        try:
+            payload = message.get("payload", {})
+            investigation_id = payload.get("investigation_id")
+            query = payload.get("query")
+            agent_filter = payload.get("agent", None)
+
+            # Check if this request is for us (or all crawlers)
+            if agent_filter and agent_filter != "NewsFeedAgent":
+                return
+
+            if not investigation_id or not query:
+                self.logger.warning("Fetch request missing required fields")
+                return
+
+            self.logger.info(
+                f"Handling explicit fetch request",
+                investigation_id=investigation_id,
+                query=query
+            )
+
+            # Execute fetch
+            await self._execute_investigation_fetch(
+                investigation_id=investigation_id,
+                query=query,
+                **payload.get("options", {})
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error handling fetch request: {e}", exc_info=True)
+
+    async def _execute_investigation_fetch(
+        self,
+        investigation_id: str,
+        query: str,
+        objective: str = "",
+        **options
+    ) -> None:
+        """
+        Execute investigation fetch and publish results.
+
+        Internal method that orchestrates fetch, storage, and notification.
+
+        Args:
+            investigation_id: Investigation identifier
+            query: Search query
+            objective: Investigation objective
+            **options: Additional fetch options
+        """
+        try:
+            # Fetch articles
+            result = await self.fetch_investigation_data(
+                query=query,
+                investigation_context={"investigation_id": investigation_id, "objective": objective},
+                **options
+            )
+
+            if not result["success"]:
+                self.logger.error(f"Fetch failed for investigation {investigation_id}")
+                # Publish failure notification
+                await self.message_bus.publish(
+                    "crawler.failed",
+                    {
+                        "agent": "NewsFeedAgent",
+                        "investigation_id": investigation_id,
+                        "errors": result.get("errors", [])
+                    }
+                )
+                return
+
+            articles = result["articles"]
+
+            # Store articles
+            if articles:
+                store_stats = await self.article_store.save_articles(
+                    investigation_id=investigation_id,
+                    articles=articles,
+                    investigation_metadata={
+                        "query": query,
+                        "objective": objective,
+                        "agent": "NewsFeedAgent"
+                    }
+                )
+
+                self.logger.info(
+                    f"Stored articles for investigation {investigation_id}",
+                    **store_stats
+                )
+
+            # Publish completion notification
+            await self.message_bus.publish(
+                "crawler.complete",
+                {
+                    "agent": "NewsFeedAgent",
+                    "investigation_id": investigation_id,
+                    "article_count": len(articles),
+                    "total_articles": result["total_articles"],
+                    "dedup_stats": result.get("dedup_stats"),
+                    "source_breakdown": result.get("source_breakdown", {}),
+                    "metadata": {
+                        "rss_articles": result.get("rss_articles", 0),
+                        "api_articles": result.get("api_articles", 0),
+                    }
+                }
+            )
+
+            self.logger.info(
+                f"Completed fetch for investigation {investigation_id}",
+                article_count=len(articles)
+            )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error executing investigation fetch: {e}",
+                exc_info=True,
+                investigation_id=investigation_id
+            )
+
+            # Publish failure notification
+            await self.message_bus.publish(
+                "crawler.failed",
+                {
+                    "agent": "NewsFeedAgent",
+                    "investigation_id": investigation_id,
+                    "error": str(e)
+                }
+            )
+
     def get_capabilities(self) -> list[str]:
         """
         Return NewsFeedAgent capabilities.
@@ -951,5 +1164,7 @@ class NewsFeedAgent(BaseCrawler):
             "retry_with_backoff",
             "multi_source_integration",
             "article_normalization",
+            "message_bus_integration",
+            "article_storage",
         ])
         return capabilities
