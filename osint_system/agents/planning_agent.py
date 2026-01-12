@@ -17,6 +17,12 @@ from osint_system.orchestration.state_schemas import (
     Finding,
     Conflict,
 )
+from osint_system.orchestration.task_queue import TaskQueue, Task
+from osint_system.orchestration.refinement.analysis import (
+    calculate_signal_strength,
+    CoverageMetrics,
+    check_diminishing_returns,
+)
 from osint_system.config.settings import settings
 
 
@@ -67,6 +73,11 @@ class PlanningOrchestrator(BaseAgent):
         self.signal_strength_threshold = 0.75
         self.coverage_target = {"source_diversity": 0.7, "geographic_coverage": 0.6}
         self.diminishing_returns_threshold = 0.2  # <20% new information = diminishing returns
+
+        # Task management
+        self.task_queue = TaskQueue()
+        self.coverage_metrics = None  # Initialized per investigation
+        self.previous_findings = []  # For diminishing returns detection
 
         # Build the LangGraph workflow
         self.graph = self._build_graph()
@@ -313,10 +324,11 @@ Respond with ONLY the JSON array, no other text."""
 
     async def assign_agents(self, state: OrchestratorState) -> OrchestratorState:
         """
-        Assign subtasks to available agents based on their capabilities.
+        Assign subtasks to available agents using TaskQueue for priority-based distribution.
 
         Uses the agent registry to find agents capable of handling each subtask,
-        considering suggested sources and agent availability.
+        considering suggested sources and agent availability. Tasks are added to
+        queue with priority scoring.
 
         Args:
             state: Current orchestrator state
@@ -334,56 +346,102 @@ Respond with ONLY the JSON array, no other text."""
                 "messages": state.get("messages", []) + ["No subtasks available for assignment"],
             }
 
+        # Initialize coverage metrics if first run
+        if self.coverage_metrics is None:
+            objective = state.get("objective", "")
+            keywords = objective.lower().split()
+            self.task_queue.set_investigation_context(keywords)
+            self.coverage_metrics = CoverageMetrics()
+
         assignments = {}
 
-        if self.registry:
-            try:
-                for subtask in subtasks:
-                    # Get suggested sources from subtask
-                    sources = subtask.get("suggested_sources", [])
+        # Add subtasks to queue with priority
+        for subtask in subtasks:
+            if subtask.get("status") == "pending":
+                # Extract metadata for priority scoring
+                metadata = {
+                    "keywords": subtask.get("description", "").split(),
+                    "source_type": subtask.get("suggested_sources", [None])[0] if subtask.get("suggested_sources") else None,
+                    "urgency": "high" if subtask.get("priority", 5) >= 8 else "normal",
+                }
 
-                    # Find agents matching the sources
-                    best_agent = None
-                    for source in sources:
-                        agents = await self.registry.find_agents_by_capability(source)
-                        if agents:
-                            # Pick highest priority available agent
-                            best_agent = agents[0].name
-                            break
+                # Add to queue
+                task_id = self.task_queue.add_task(
+                    objective=subtask["description"],
+                    metadata=metadata,
+                    task_id=subtask["id"]
+                )
 
-                    if best_agent:
-                        assignments[subtask["id"]] = best_agent
-                        self.logger.info(
-                            f"Assigned {subtask['id']} to {best_agent}",
-                            source=sources,
-                        )
-                    else:
-                        # No matching agent, assign to generic worker
-                        assignments[subtask["id"]] = "general_worker"
-                        self.logger.warning(f"No specific agent for {subtask['id']}, assigned to general_worker")
+        # Distribute tasks to agents based on capabilities
+        await self.distribute_tasks()
 
-            except Exception as e:
-                self.logger.error(f"Agent assignment failed: {e}")
-                # Fallback: assign all to general_worker
-                for subtask in subtasks:
-                    assignments[subtask["id"]] = "general_worker"
-        else:
-            # No registry available, assign all to general_worker
-            for subtask in subtasks:
-                assignments[subtask["id"]] = "general_worker"
+        # Get current task assignments from queue
+        for task_id, task in self.task_queue._tasks.items():
+            if task.assigned_agent:
+                assignments[task_id] = task.assigned_agent
 
         assignment_summary = "\n".join(
-            [f"  {st['id']}: {assignments.get(st['id'], 'unassigned')}" for st in subtasks]
+            [f"  {st['id']}: {assignments.get(st['id'], 'queued')}" for st in subtasks]
         )
-        reasoning = f"Agent assignments:\n{assignment_summary}"
+        reasoning = f"Agent assignments (priority-based):\n{assignment_summary}"
 
-        self.logger.info(f"Agent assignment complete: {len(assignments)} subtasks assigned")
+        self.logger.info(f"Agent assignment complete: {len(assignments)} subtasks assigned/queued")
 
         return {
             **state,
             "agent_assignments": assignments,
             "messages": state.get("messages", []) + [reasoning],
         }
+
+    async def distribute_tasks(self):
+        """
+        Distribute tasks from queue to available agents based on capabilities.
+
+        Matches tasks to agents using registry capabilities and updates queue.
+        """
+        if not self.registry:
+            # No registry, assign to general_worker
+            pending_tasks = self.task_queue.get_pending_tasks()
+            for task in pending_tasks:
+                self.task_queue.update_task_status(
+                    task.id,
+                    status="assigned",
+                    assigned_agent="general_worker"
+                )
+            return
+
+        try:
+            # Get available agents
+            active_agents = await self.registry.get_active_agents()
+
+            # Process pending tasks
+            for agent_info in active_agents:
+                # Try to get a task matching this agent's capabilities
+                task = self.task_queue.get_next_task(agent_capabilities=agent_info.capabilities)
+
+                if task:
+                    # Assign task to agent
+                    self.task_queue.update_task_status(
+                        task.id,
+                        status="assigned",
+                        assigned_agent=agent_info.name
+                    )
+
+                    self.logger.info(
+                        f"Distributed {task.id} to {agent_info.name}",
+                        priority=f"{task.priority:.3f}"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Task distribution failed: {e}")
+            # Fallback: assign to general_worker
+            pending_tasks = self.task_queue.get_pending_tasks()
+            for task in pending_tasks:
+                self.task_queue.update_task_status(
+                    task.id,
+                    status="assigned",
+                    assigned_agent="general_worker"
+                )
 
     async def coordinate_execution(self, state: OrchestratorState) -> OrchestratorState:
         """
@@ -457,7 +515,7 @@ Respond with ONLY the JSON array, no other text."""
 
     async def evaluate_findings(self, state: OrchestratorState) -> OrchestratorState:
         """
-        Evaluate findings and make adaptive routing decisions.
+        Evaluate findings using signal analysis and coverage metrics for adaptive routing.
 
         Analyzes signal strength, coverage metrics, and diminishing returns to decide
         whether to explore, refine, synthesize, or end the investigation.
@@ -470,8 +528,8 @@ Respond with ONLY the JSON array, no other text."""
         """
         findings = state.get("findings", [])
         refinement_count = state.get("refinement_count", 0)
-        coverage = state.get("coverage_metrics", {})
         max_refinements = state.get("max_refinements", self.max_refinements)
+        objective = state.get("objective", "")
 
         self.logger.info(
             "Evaluating findings",
@@ -479,8 +537,18 @@ Respond with ONLY the JSON array, no other text."""
             refinement_count=refinement_count,
         )
 
-        # Calculate signal strength from findings
-        signal_strength = self._calculate_signal_strength(findings)
+        # Calculate signal strength using new analysis module
+        keywords = objective.lower().split()
+        signal_strength = calculate_signal_strength(findings, investigation_keywords=keywords)
+
+        # Update coverage metrics
+        if self.coverage_metrics:
+            for finding in findings:
+                self.coverage_metrics.update_from_finding(finding)
+
+            coverage = self.coverage_metrics.get_overall_coverage()
+        else:
+            coverage = state.get("coverage_metrics", {})
 
         # Check coverage targets
         coverage_met = all(
@@ -488,10 +556,20 @@ Respond with ONLY the JSON array, no other text."""
             for key, target in self.coverage_target.items()
         )
 
-        # Diminishing returns analysis
+        # Diminishing returns analysis using new check function
         diminishing_returns = False
         if refinement_count > 2 and len(findings) > 2:
-            diminishing_returns = self._check_diminishing_returns(findings, refinement_count)
+            # Get new findings (since last refinement)
+            new_findings = findings[-2:] if len(findings) > 2 else []
+            novelty_score = check_diminishing_returns(
+                new_findings,
+                self.previous_findings,
+                novelty_threshold=self.diminishing_returns_threshold
+            )
+            diminishing_returns = novelty_score < self.diminishing_returns_threshold
+
+            # Update previous findings for next iteration
+            self.previous_findings = findings.copy()
 
         # Adaptive routing logic - CRITICAL: Must always terminate
         next_action = "synthesize"  # Default to synthesizing
@@ -536,7 +614,7 @@ Respond with ONLY the JSON array, no other text."""
             next_action = "synthesize"
             reasoning = "Default to synthesis for safety"
 
-        evaluation_summary = f"Routing decision: {next_action}\n  {reasoning}"
+        evaluation_summary = f"Routing decision: {next_action}\n  {reasoning}\n  Signal: {signal_strength:.2f}, Coverage: {coverage}"
         messages = state.get("messages", []) + [evaluation_summary]
 
         self.logger.info("Evaluation complete", next_action=next_action, reasoning=reasoning)
@@ -544,6 +622,7 @@ Respond with ONLY the JSON array, no other text."""
         return {
             **state,
             "signal_strength": signal_strength,
+            "coverage_metrics": coverage,
             "next_action": next_action,
             "messages": messages,
         }

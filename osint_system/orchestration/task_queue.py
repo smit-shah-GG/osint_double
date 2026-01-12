@@ -371,8 +371,8 @@ class TaskQueue:
             if task.status == "pending"
         ]
 
-        # Sort by priority (descending)
-        pending.sort(reverse=True)
+        # Sort by priority (descending) - use key to avoid __lt__ comparator
+        pending.sort(key=lambda t: t.priority, reverse=True)
 
         if limit:
             pending = pending[:limit]
