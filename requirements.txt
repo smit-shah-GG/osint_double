@@ -15,3 +15,10 @@ structlog
 # Additional dependencies
 aiofiles
 langchain-google-genai  # For Gemini integration with LangChain
+
+# Reddit crawler dependencies
+asyncpraw>=7.7.0  # Async Reddit API wrapper
+httpx>=0.25.0  # Fast async HTTP client
+aiometer>=0.5.0  # Rate limiting for async operations
+yarl>=1.9.0  # URL handling and manipulation
+tenacity>=8.2.0  # Retry logic with exponential backoff
