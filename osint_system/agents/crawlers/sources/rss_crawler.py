@@ -57,7 +57,7 @@ class RSSCrawler:
             - feed_title: Extracted feed title
             - feed_link: Feed homepage URL
             - feed_description: Feed description
-            - entries: List of parsed feed entries
+            - articles: List of parsed feed articles (normalized entries)
             - error: Error message if parsing failed (optional)
             - parsing_errors: Any warnings during parsing (optional)
 
@@ -94,7 +94,7 @@ class RSSCrawler:
                 "feed_title": parsed.feed.get("title", "Unknown Feed"),
                 "feed_link": parsed.feed.get("link", ""),
                 "feed_description": parsed.feed.get("description", ""),
-                "entries": [],
+                "articles": [],  # Changed from "entries" to "articles" for consistency
                 "encoding": parsed.encoding,
                 "bozo": parsed.bozo,
             }
@@ -102,12 +102,12 @@ class RSSCrawler:
             # Extract entries with normalized metadata
             for entry in parsed.entries:
                 normalized_entry = self._normalize_entry(entry, feed_info["feed_title"])
-                feed_info["entries"].append(normalized_entry)
+                feed_info["articles"].append(normalized_entry)  # Changed to "articles"
 
             self.logger.info(
                 "Feed parsed successfully",
                 title=feed_info["feed_title"],
-                entry_count=len(feed_info["entries"]),
+                entry_count=len(feed_info["articles"]),  # Updated to match "articles"
                 encoding=parsed.encoding,
             )
 
@@ -121,7 +121,7 @@ class RSSCrawler:
                 "feed_title": None,
                 "feed_link": None,
                 "feed_description": None,
-                "entries": [],
+                "articles": [],  # Changed from "entries" to "articles" for consistency
                 "error": error_msg,
             }
 
