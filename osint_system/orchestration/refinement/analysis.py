@@ -151,7 +151,22 @@ def _get_credibility_score(finding: Dict[str, Any]) -> float:
 
     # Check for explicit credibility score
     if "credibility" in metadata:
-        return max(0.0, min(1.0, metadata["credibility"]))
+        cred = metadata["credibility"]
+
+        # Handle string credibility levels
+        if isinstance(cred, str):
+            cred_lower = cred.lower()
+            if cred_lower in ["high", "very high", "excellent"]:
+                return 0.9
+            elif cred_lower in ["medium", "moderate", "good"]:
+                return 0.7
+            elif cred_lower in ["low", "poor", "questionable"]:
+                return 0.4
+            else:
+                return 0.6  # Default for unknown strings
+
+        # Handle numeric credibility
+        return max(0.0, min(1.0, cred))
 
     # Check for source reputation mapping
     source = finding.get("source", "").lower()

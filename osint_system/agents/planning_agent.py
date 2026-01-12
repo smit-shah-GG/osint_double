@@ -83,6 +83,9 @@ class PlanningOrchestrator(BaseAgent):
         # Refinement engine for iterative improvements
         self.refinement_engine = RefinementEngine(max_iterations=max_refinements)
 
+        # Conflict tracking without resolution
+        self.conflicts = []
+
         # Build the LangGraph workflow
         self.graph = self._build_graph()
 
@@ -908,6 +911,128 @@ Respond with ONLY the JSON array, no other text."""
                 "findings": [],
             }
 
+    def track_conflict(self, conflict: dict) -> None:
+        """
+        Track contradictory information without attempting resolution.
+
+        Stores conflicts for later analysis and reporting, preserving all
+        versions of contradictory information with their sources.
+
+        Args:
+            conflict: Dictionary with conflict details:
+                - topic: What the conflict is about
+                - version_a: First version of information
+                - source_a: Source of first version
+                - version_b: Contradictory version
+                - source_b: Source of second version
+                - timestamp: When conflict was detected
+        """
+        conflict_record = {
+            "id": f"CONF-{len(self.conflicts)+1:03d}",
+            "topic": conflict.get("topic", "Unknown"),
+            "version_a": conflict.get("version_a"),
+            "source_a": conflict.get("source_a"),
+            "version_b": conflict.get("version_b"),
+            "source_b": conflict.get("source_b"),
+            "timestamp": conflict.get("timestamp", datetime.utcnow().isoformat()),
+            "status": "unresolved"  # Always unresolved - no premature resolution
+        }
+
+        self.conflicts.append(conflict_record)
+
+        self.logger.info(
+            f"Conflict tracked: {conflict_record['topic']}",
+            conflict_id=conflict_record["id"],
+            sources=[conflict.get("source_a"), conflict.get("source_b")]
+        )
+
+    def get_conflict_report(self) -> list[dict]:
+        """
+        Get a report of all unresolved conflicts.
+
+        Returns:
+            List of conflict records with all contradictory information preserved
+        """
+        return self.conflicts.copy()
+
+    def get_reasoning_trace(self) -> str:
+        """
+        Get complete decision history showing all reasoning.
+
+        Combines refinement history, routing decisions, and conflict tracking
+        into a comprehensive trace for full transparency.
+
+        Returns:
+            Human-readable trace of all decisions and reasoning
+        """
+        lines = ["=== Complete Reasoning Trace ===\n"]
+
+        # Add refinement history from engine
+        if self.refinement_engine:
+            lines.append(self.refinement_engine.get_reasoning_trace())
+            lines.append("")
+
+        # Add conflict summary
+        if self.conflicts:
+            lines.append("=== Unresolved Conflicts ===")
+            for conflict in self.conflicts[:5]:  # Show first 5 conflicts
+                lines.append(f"\n{conflict['id']}: {conflict['topic']}")
+                lines.append(f"  Version A ({conflict['source_a']}): {conflict['version_a']}")
+                lines.append(f"  Version B ({conflict['source_b']}): {conflict['version_b']}")
+        else:
+            lines.append("=== No Conflicts Detected ===")
+
+        # Add routing thresholds
+        lines.append("\n=== Routing Configuration ===")
+        lines.append(f"Signal Threshold: {self.signal_strength_threshold}")
+        lines.append(f"Coverage Targets: {self.coverage_target}")
+        lines.append(f"Diminishing Returns: {self.diminishing_returns_threshold}")
+        lines.append(f"Max Refinements: {self.max_refinements}")
+
+        return "\n".join(lines)
+
+    def describe(self) -> str:
+        """
+        Describe the orchestrator's capabilities and structure.
+
+        Returns:
+            Human-readable description of the orchestrator
+        """
+        lines = [
+            "=== Planning Orchestrator ===",
+            "",
+            "**Structure:**",
+            "- LangGraph StateGraph with adaptive routing",
+            "- Nodes: analyze, assign, coordinate, evaluate, refine, synthesize",
+            "- Conditional routing based on signal strength and coverage",
+            "",
+            "**Capabilities:**",
+            "- Objective decomposition into actionable subtasks",
+            "- Priority-based task distribution via TaskQueue",
+            "- Iterative refinement with RefinementEngine",
+            "- Hierarchical sub-coordinator support",
+            "- Conflict tracking without premature resolution",
+            "",
+            "**Refinement Features:**",
+            "- Reflection on findings to identify gaps",
+            "- Follow-up question generation",
+            "- Targeted subtask creation",
+            f"- Hard limit: {self.max_refinements} iterations",
+            "",
+            "**Sub-Coordinator Support:**",
+            "- Create specialized coordinators by source type",
+            "- Parallel exploration of multiple aspects",
+            "- Result aggregation with source attribution",
+            "",
+            "**Transparency:**",
+            "- Complete reasoning trace available",
+            "- All routing decisions explained",
+            f"- {len(self.conflicts)} conflicts tracked",
+            ""
+        ]
+
+        return "\n".join(lines)
+
     def get_capabilities(self) -> list[str]:
         """
         Return agent capabilities.
@@ -921,4 +1046,7 @@ Respond with ONLY the JSON array, no other text."""
             "objective_decomposition",
             "task_distribution",
             "adaptive_routing",
+            "iterative_refinement",
+            "hierarchical_delegation",
+            "conflict_tracking",
         ]
