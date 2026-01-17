@@ -18,6 +18,7 @@ import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Any
 from loguru import logger
+from osint_system.config.settings import settings
 
 
 class NewsAPIClient:
@@ -47,8 +48,8 @@ class NewsAPIClient:
         Raises:
             ValueError: If no API key provided and NEWS_API_KEY env var not set
         """
-        # Get API key from parameter or environment
-        self.api_key = api_key or os.environ.get("NEWS_API_KEY")
+        # Get API key from parameter, settings, or environment
+        self.api_key = api_key or settings.news_api_key or os.environ.get("NEWS_API_KEY")
 
         if not self.api_key:
             # Don't raise - allow initialization without key for testing
