@@ -105,15 +105,15 @@ Plans:
 - [x] 05-06: Integration testing ✓
 
 ### Phase 6: Fact Extraction Pipeline
-**Goal**: Extract discrete, verifiable facts from raw text with structured output
+**Goal**: Extract discrete, verifiable facts from raw text with structured output per CONTEXT.md schema
 **Depends on**: Phase 5
 **Research**: Unlikely (internal LLM prompting using established patterns)
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Build FactExtractionAgent with optimized prompts
-- [ ] 06-02: Implement structured JSON output format
-- [ ] 06-03: Create deduplication and consolidation logic
+- [ ] 06-01-PLAN.md — Pydantic schemas for fact output (ExtractedFact, Entity, Provenance)
+- [ ] 06-02-PLAN.md — FactExtractionAgent with Gemini prompts
+- [ ] 06-03-PLAN.md — FactStore and FactConsolidator for dedup/storage
 
 ### Phase 7: Fact Classification System
 **Goal**: Categorize facts into critical/less-critical/dubious tiers with credibility scoring
