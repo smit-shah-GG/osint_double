@@ -108,12 +108,13 @@ Plans:
 **Goal**: Extract discrete, verifiable facts from raw text with structured output per CONTEXT.md schema
 **Depends on**: Phase 5
 **Research**: Unlikely (internal LLM prompting using established patterns)
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [ ] 06-01-PLAN.md — Pydantic schemas for fact output (ExtractedFact, Entity, Provenance)
 - [ ] 06-02-PLAN.md — FactExtractionAgent with Gemini prompts
 - [ ] 06-03-PLAN.md — FactStore and FactConsolidator for dedup/storage
+- [ ] 06-04-PLAN.md — ExtractionPipeline bridging crawler output to fact extraction
 
 ### Phase 7: Fact Classification System
 **Goal**: Categorize facts into critical/less-critical/dubious tiers with credibility scoring
@@ -177,7 +178,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Planning & Orchestration Agent | 3/3 | Complete ✓ | 2026-01-12 |
 | 4. News Crawler Implementation | 4/4 | Complete ✓ | 2026-01-13 |
 | 5. Extended Crawler Cohort | 6/6 | Complete ✓ | 2026-02-01 |
-| 6. Fact Extraction Pipeline | 0/3 | Not started | - |
+| 6. Fact Extraction Pipeline | 0/4 | Not started | - |
 | 7. Fact Classification System | 0/3 | Not started | - |
 | 8. Verification Loop | 0/4 | Not started | - |
 | 9. Knowledge Graph Integration | 0/5 | Not started | - |
