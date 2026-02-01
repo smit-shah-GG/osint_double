@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 5 — Extended Crawler Cohort
+**Current focus:** Phase 5 Complete, Ready for Phase 6
 
 ## Current Position
 
 Phase: 5 of 10 (Extended Crawler Cohort)
-Plan: 5 of 6 in current phase
-Status: In progress
-Last activity: 2026-02-01 — Completed 05-05-PLAN.md
+Plan: 6 of 6 in current phase
+Status: Phase complete
+Last activity: 2026-02-01 — Completed 05-06-PLAN.md
 
-Progress: ██████████████████████████████████████████ 42%
+Progress: ████████████████████████████████████████████ 44%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: 31.8 min
-- Total execution time: 572 min
+- Total plans completed: 22
+- Average duration: 27.6 min
+- Total execution time: 607 min
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: ███████████████████████�
 | 02-base-agent-architecture | 4/4 | 330 min | 82.5 min |
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
 | 04-news-crawler | 5/5 | 65 min | 13 min |
-| 05-extended-crawler-cohort | 2/6 | 7 min | 3.5 min |
+| 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-01 (4 min), 05-05 (3 min)
+- Last 5 plans: 05-02 (3 min), 05-03 (12 min), 05-04 (5 min), 05-05 (3 min), 05-06 (8 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -96,6 +96,10 @@ Recent decisions affecting current work:
 - Three-stage extraction fallback: trafilatura (precision) -> trafilatura (recall) -> BeautifulSoup
 - Minimum content length 500 chars for quality filtering
 - Domain-based authority scoring: .gov/.edu 0.9, .org 0.7, default 0.5
+- Keyword-based crawler selection in Planning Agent (not LLM-based)
+- Parallel crawler execution with asyncio.gather for efficiency
+- Source type detection from task description and objective keywords
+- Default to news + web crawlers when no specific sources detected
 
 ### Deferred Issues
 
@@ -108,5 +112,16 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 05-03-PLAN.md
+Stopped at: Completed 05-06-PLAN.md, Phase 5 complete
 Resume file: None
+
+## Phase 5 Summary
+
+Extended crawler cohort now operational:
+- **RedditCrawler:** Social media with authority filtering (score/comments thresholds)
+- **DocumentCrawler:** PDF and web document extraction with quality filtering
+- **HybridWebCrawler:** httpx-first with Playwright fallback for JS sites
+- **NewsFeedAgent:** RSS feeds and NewsAPI integration
+- **Coordination:** URLManager, AuthorityScorer, ContextCoordinator, MessageBus
+
+Ready for Phase 6: Fact Extraction Pipeline
