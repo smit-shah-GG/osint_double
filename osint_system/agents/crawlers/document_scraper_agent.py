@@ -315,12 +315,131 @@ class DocumentCrawler(BaseCrawler):
             "error": "No extractable text found in PDF",
         }
 
+    def calculate_authority_score(self, url: str) -> float:
+        """
+        Calculate authority score for a URL based on domain type.
+
+        Government and educational domains receive highest scores.
+        Organizational domains receive medium scores.
+        All other domains receive default score.
+
+        Args:
+            url: URL to score
+
+        Returns:
+            Authority score between 0.0 and 1.0
+        """
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # Check for exact domain matches first (e.g., reuters.com)
+        for known_domain, score in self.AUTHORITY_DOMAINS.items():
+            if not known_domain.startswith("."):
+                if domain == known_domain or domain.endswith("." + known_domain):
+                    self.logger.debug(
+                        f"Authority score matched: {known_domain}",
+                        url=url,
+                        score=score,
+                    )
+                    return score
+
+        # Check for TLD-based matches (e.g., .gov, .edu)
+        for tld, score in self.AUTHORITY_DOMAINS.items():
+            if tld.startswith("."):
+                if domain.endswith(tld):
+                    self.logger.debug(
+                        f"Authority score matched TLD: {tld}",
+                        url=url,
+                        score=score,
+                    )
+                    return score
+
+        # Default score for unknown domains
+        return 0.5
+
+    def extract_with_fallback(self, html: str, url: str) -> Optional[str]:
+        """
+        Extract content with fallback chain.
+
+        Follows Pattern 3 from research: try trafilatura first,
+        fallback to BeautifulSoup raw text extraction if needed.
+
+        Args:
+            html: Raw HTML content
+            url: Source URL for context
+
+        Returns:
+            Extracted text content or None if all extractors fail
+        """
+        # Try trafilatura first (best F1 scores)
+        content = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            target_language="en",
+            favor_precision=True,
+        )
+
+        if content and len(content.strip()) >= self.min_content_length:
+            self.logger.debug(
+                "Content extracted with trafilatura",
+                url=url,
+                length=len(content),
+            )
+            return content
+
+        # Fallback to trafilatura with lower precision (catches more content)
+        content = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            favor_recall=True,
+        )
+
+        if content and len(content.strip()) >= self.min_content_length:
+            self.logger.debug(
+                "Content extracted with trafilatura (recall mode)",
+                url=url,
+                length=len(content),
+            )
+            return content
+
+        # Final fallback: BeautifulSoup raw text
+        try:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(html, "html.parser")
+
+            # Remove script and style elements
+            for script in soup(["script", "style", "nav", "header", "footer"]):
+                script.decompose()
+
+            # Get text
+            text = soup.get_text(separator="\n", strip=True)
+
+            if text and len(text.strip()) >= self.min_content_length:
+                self.logger.debug(
+                    "Content extracted with BeautifulSoup fallback",
+                    url=url,
+                    length=len(text),
+                )
+                return text
+
+        except Exception as e:
+            self.logger.debug(f"BeautifulSoup fallback failed: {e}")
+
+        self.logger.warning(
+            "All content extractors failed or returned insufficient content",
+            url=url,
+        )
+        return None
+
     def extract_web_content(self, html: str, url: str) -> dict:
         """
-        Extract main content from HTML using trafilatura.
+        Extract main content from HTML using trafilatura with fallback.
 
         Uses trafilatura for high-quality content extraction with
-        table support enabled.
+        table support enabled. Falls back to BeautifulSoup if needed.
 
         Args:
             html: Raw HTML content
@@ -336,25 +455,19 @@ class DocumentCrawler(BaseCrawler):
             - error: Error message if failed
         """
         try:
-            # Extract main content
-            content = trafilatura.extract(
-                html,
-                include_comments=False,
-                include_tables=True,
-                target_language="en",
-                favor_precision=True,
-            )
-
-            # Extract metadata
+            # Extract metadata first (always attempt)
             metadata = extract_metadata(html)
 
             title = metadata.title if metadata else None
             author = metadata.author if metadata else None
             date = metadata.date if metadata else None
 
+            # Extract content with fallback chain
+            content = self.extract_with_fallback(html, url)
+
             if content:
                 self.logger.debug(
-                    "Web content extracted with trafilatura",
+                    "Web content extracted successfully",
                     url=url,
                     content_length=len(content),
                     has_title=title is not None,
@@ -374,7 +487,7 @@ class DocumentCrawler(BaseCrawler):
                 "title": title,
                 "author": author,
                 "date": date,
-                "error": "No extractable content found",
+                "error": "No extractable content found (all fallbacks failed)",
             }
 
         except Exception as e:
@@ -395,6 +508,7 @@ class DocumentCrawler(BaseCrawler):
 
         Routes to appropriate extractor based on document type.
         Returns structured result with content, metadata, and quality scores.
+        Applies quality filtering: returns None for low-quality content.
 
         Args:
             url: URL of document to process
@@ -404,14 +518,18 @@ class DocumentCrawler(BaseCrawler):
             - success: bool indicating overall success
             - content: Extracted text content
             - document_type: 'pdf' or 'web'
-            - metadata: Dict with title, author, date, page_count
+            - metadata: Dict with title, author, date, page_count, authority_score
             - source_url: Original URL
             - retrieved_at: ISO timestamp of retrieval
             - error: Error message if failed
 
-            Returns None if content does not meet quality thresholds.
+            Returns None if content does not meet quality thresholds
+            (length < min_content_length).
         """
         self.logger.info(f"Processing document: {url}")
+
+        # Calculate authority score upfront
+        authority_score = self.calculate_authority_score(url)
 
         # Fetch document
         fetch_result = await self.fetch_document(url)
@@ -420,7 +538,7 @@ class DocumentCrawler(BaseCrawler):
                 "success": False,
                 "content": "",
                 "document_type": None,
-                "metadata": {},
+                "metadata": {"authority_score": authority_score},
                 "source_url": url,
                 "retrieved_at": datetime.now(timezone.utc).isoformat(),
                 "error": fetch_result["error"],
@@ -434,11 +552,24 @@ class DocumentCrawler(BaseCrawler):
                     "success": False,
                     "content": "",
                     "document_type": "pdf",
-                    "metadata": {"page_count": extraction.get("page_count", 0)},
+                    "metadata": {
+                        "page_count": extraction.get("page_count", 0),
+                        "authority_score": authority_score,
+                    },
                     "source_url": url,
                     "retrieved_at": datetime.now(timezone.utc).isoformat(),
                     "error": extraction["error"],
                 }
+
+            # Quality filter: check minimum content length
+            if len(extraction["text"].strip()) < self.min_content_length:
+                self.logger.info(
+                    "PDF content below minimum length threshold",
+                    url=url,
+                    content_length=len(extraction["text"]),
+                    min_required=self.min_content_length,
+                )
+                return None
 
             return {
                 "success": True,
@@ -447,6 +578,7 @@ class DocumentCrawler(BaseCrawler):
                 "metadata": {
                     "page_count": extraction["page_count"],
                     "extractor": extraction["extractor"],
+                    "authority_score": authority_score,
                 },
                 "source_url": url,
                 "retrieved_at": datetime.now(timezone.utc).isoformat(),
@@ -460,11 +592,21 @@ class DocumentCrawler(BaseCrawler):
                     "success": False,
                     "content": "",
                     "document_type": "web",
-                    "metadata": {},
+                    "metadata": {"authority_score": authority_score},
                     "source_url": url,
                     "retrieved_at": datetime.now(timezone.utc).isoformat(),
                     "error": extraction["error"],
                 }
+
+            # Quality filter: check minimum content length
+            if len(extraction["text"].strip()) < self.min_content_length:
+                self.logger.info(
+                    "Web content below minimum length threshold",
+                    url=url,
+                    content_length=len(extraction["text"]),
+                    min_required=self.min_content_length,
+                )
+                return None
 
             return {
                 "success": True,
@@ -474,6 +616,7 @@ class DocumentCrawler(BaseCrawler):
                     "title": extraction["title"],
                     "author": extraction["author"],
                     "date": extraction["date"],
+                    "authority_score": authority_score,
                 },
                 "source_url": url,
                 "retrieved_at": datetime.now(timezone.utc).isoformat(),
@@ -533,7 +676,7 @@ class DocumentCrawler(BaseCrawler):
             data: Extracted document data
 
         Returns:
-            Standardized metadata dictionary
+            Standardized metadata dictionary including authority_score
         """
         return {
             "source_url": data.get("source_url"),
@@ -543,6 +686,7 @@ class DocumentCrawler(BaseCrawler):
             "publication_date": data.get("metadata", {}).get("date"),
             "retrieved_at": data.get("retrieved_at"),
             "page_count": data.get("metadata", {}).get("page_count"),
+            "authority_score": data.get("metadata", {}).get("authority_score"),
         }
 
     def get_capabilities(self) -> list[str]:
