@@ -405,16 +405,26 @@ Respond with ONLY the JSON array, no other text."""
             "messages": state.get("messages", []) + [reasoning],
         }
 
-    async def _trigger_crawler_execution(self, state: OrchestratorState) -> None:
+    async def _trigger_crawler_execution(
+        self,
+        state: OrchestratorState,
+        source_types: list[str] | None = None,
+    ) -> None:
         """
-        Trigger crawler execution for news-related subtasks.
+        Trigger extended crawler execution based on suggested sources.
 
-        Publishes investigation.start message to message bus if:
-        - Any subtask suggests "news" as a source
-        - Message bus is available
+        Analyzes subtasks and objective to determine which crawlers to activate:
+        - "news" -> news.crawl (NewsFeedAgent)
+        - "reddit", "discussion", "social_media" -> reddit.crawl (RedditCrawler)
+        - "documents", "report", "PDF" -> document.crawl (DocumentCrawler)
+        - General web content -> web.crawl (HybridWebCrawler)
+
+        Publishes crawler-specific messages via message bus.
 
         Args:
             state: Current orchestrator state
+            source_types: Optional explicit list of source types to activate
+                         (overrides detection from subtasks)
         """
         if not self.message_bus:
             self.logger.debug("Message bus not available, skipping crawler trigger")
@@ -423,42 +433,195 @@ Respond with ONLY the JSON array, no other text."""
         objective = state.get("objective", "")
         subtasks = state.get("subtasks", [])
 
-        # Check if any subtask needs news crawling
-        needs_news_crawling = any(
-            "news" in subtask.get("suggested_sources", [])
-            for subtask in subtasks
-        )
+        # Detect needed crawlers from subtasks and objective
+        if source_types:
+            needed_crawlers = set(source_types)
+        else:
+            needed_crawlers = self._detect_crawler_types(subtasks, objective)
 
-        if not needs_news_crawling:
-            self.logger.debug("No news crawling needed for current subtasks")
+        if not needed_crawlers:
+            self.logger.debug("No crawler types detected for current subtasks")
             return
 
         # Generate investigation ID (use objective hash for determinism)
         import hashlib
         investigation_id = hashlib.md5(objective.encode()).hexdigest()[:16]
 
-        # Extract query from objective (simplified - could use LLM for better extraction)
+        # Extract keywords from objective for crawler queries
+        keywords = self._extract_keywords(objective)
         query = objective[:200]  # Use first 200 chars as query
 
+        self.logger.info(
+            f"Triggering crawlers for investigation {investigation_id}",
+            crawlers=list(needed_crawlers),
+            keywords=keywords[:5],
+        )
+
         try:
-            # Publish investigation start event
-            await self.message_bus.publish(
-                "investigation.start",
-                {
-                    "investigation_id": investigation_id,
-                    "query": query,
-                    "objective": objective,
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
+            # Trigger each needed crawler type
+            if "news" in needed_crawlers:
+                await self.message_bus.publish(
+                    "investigation.start",
+                    {
+                        "investigation_id": investigation_id,
+                        "query": query,
+                        "objective": objective,
+                        "keywords": keywords,
+                        "crawler_type": "news",
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
+                self.logger.debug("Triggered news.crawl")
+
+            if "reddit" in needed_crawlers:
+                await self.message_bus.publish(
+                    "reddit.crawl",
+                    {
+                        "investigation_id": investigation_id,
+                        "keywords": keywords,
+                        "objective": objective,
+                        "subreddits": ["worldnews", "geopolitics", "news"],
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
+                self.logger.debug("Triggered reddit.crawl")
+
+            if "document" in needed_crawlers:
+                await self.message_bus.publish(
+                    "document.crawl",
+                    {
+                        "investigation_id": investigation_id,
+                        "keywords": keywords,
+                        "objective": objective,
+                        "document_types": ["pdf", "report"],
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
+                self.logger.debug("Triggered document.crawl")
+
+            if "web" in needed_crawlers:
+                await self.message_bus.publish(
+                    "web.crawl",
+                    {
+                        "investigation_id": investigation_id,
+                        "keywords": keywords,
+                        "objective": objective,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
+                self.logger.debug("Triggered web.crawl")
 
             self.logger.info(
-                f"Triggered crawler execution for investigation {investigation_id}",
-                query=query[:50]
+                f"Crawler execution triggered for investigation {investigation_id}",
+                crawlers_triggered=list(needed_crawlers),
             )
 
         except Exception as e:
             self.logger.error(f"Failed to trigger crawler execution: {e}", exc_info=True)
+
+    def _detect_crawler_types(
+        self,
+        subtasks: list[dict],
+        objective: str,
+    ) -> set[str]:
+        """
+        Detect which crawler types are needed based on subtasks and objective.
+
+        Analyzes suggested_sources from subtasks and keywords in objective
+        to determine appropriate crawlers.
+
+        Args:
+            subtasks: List of subtask dictionaries with suggested_sources
+            objective: Investigation objective text
+
+        Returns:
+            Set of crawler type strings: 'news', 'reddit', 'document', 'web'
+        """
+        needed = set()
+        objective_lower = objective.lower()
+
+        # Collect all suggested sources from subtasks
+        all_sources = []
+        for subtask in subtasks:
+            sources = subtask.get("suggested_sources", [])
+            all_sources.extend([s.lower() for s in sources])
+
+        # Map sources to crawler types
+        if any(s in ["news", "newsfeed"] for s in all_sources):
+            needed.add("news")
+
+        if any(s in ["social_media", "reddit", "discussion", "forum"] for s in all_sources):
+            needed.add("reddit")
+
+        if any(s in ["documents", "document", "pdf", "report", "academic"] for s in all_sources):
+            needed.add("document")
+
+        # Detect from objective keywords
+        reddit_keywords = ["reddit", "discussion", "forum", "community"]
+        if any(kw in objective_lower for kw in reddit_keywords):
+            needed.add("reddit")
+
+        document_keywords = ["pdf", "report", "document", "paper", "study", "analysis"]
+        if any(kw in objective_lower for kw in document_keywords):
+            needed.add("document")
+
+        news_keywords = ["news", "article", "press", "media coverage"]
+        if any(kw in objective_lower for kw in news_keywords):
+            needed.add("news")
+
+        # Default: if nothing specific detected, use news and web
+        if not needed:
+            needed.add("news")
+            needed.add("web")
+
+        return needed
+
+    def _extract_keywords(self, objective: str) -> list[str]:
+        """
+        Extract investigation keywords from objective.
+
+        Simple keyword extraction based on significant words.
+        Could be enhanced with NLP/LLM for better extraction.
+
+        Args:
+            objective: Investigation objective text
+
+        Returns:
+            List of keyword strings
+        """
+        # Simple extraction: split on spaces, filter common words
+        stop_words = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "being", "have", "has", "had", "do", "does", "did", "will",
+            "would", "could", "should", "may", "might", "must", "shall",
+            "can", "need", "dare", "ought", "used", "to", "of", "in",
+            "for", "on", "with", "at", "by", "from", "about", "into",
+            "through", "during", "before", "after", "above", "below",
+            "between", "under", "again", "further", "then", "once",
+            "and", "or", "but", "if", "because", "as", "until", "while",
+            "what", "which", "who", "whom", "this", "that", "these",
+            "those", "am", "its", "how", "when", "where", "why",
+            "investigate", "find", "search", "look", "determine", "identify",
+        }
+
+        words = objective.lower().split()
+        keywords = []
+
+        for word in words:
+            # Clean word of punctuation
+            clean_word = ''.join(c for c in word if c.isalnum())
+            if clean_word and len(clean_word) > 2 and clean_word not in stop_words:
+                keywords.append(clean_word)
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_keywords = []
+        for kw in keywords:
+            if kw not in seen:
+                seen.add(kw)
+                unique_keywords.append(kw)
+
+        return unique_keywords[:10]  # Limit to top 10 keywords
 
     async def distribute_tasks(self):
         """
