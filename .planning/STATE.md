@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 5 of 10 (Extended Crawler Cohort)
-Plan: 1 of 6 in current phase
+Plan: 5 of 6 in current phase
 Status: In progress
-Last activity: 2026-01-12 — Completed 05-01-PLAN.md
+Last activity: 2026-02-01 — Completed 05-05-PLAN.md
 
-Progress: ████████████████████████████████████ 35%
+Progress: ██████████████████████████████████████████ 42%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 33.5 min
-- Total execution time: 569 min
+- Total plans completed: 18
+- Average duration: 31.8 min
+- Total execution time: 572 min
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: ███████████████████████�
 | 02-base-agent-architecture | 4/4 | 330 min | 82.5 min |
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
 | 04-news-crawler | 5/5 | 65 min | 13 min |
-| 05-extended-crawler-cohort | 1/6 | 4 min | 4 min |
+| 05-extended-crawler-cohort | 2/6 | 7 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: —
-- Trend: —
+- Last 5 plans: 05-01 (4 min), 05-05 (3 min)
+- Trend: Fast execution
 
 ## Accumulated Context
 
@@ -83,6 +83,10 @@ Recent decisions affecting current work:
 - Message bus topics: investigation.start, crawler.fetch, crawler.complete, crawler.failed
 - Automatic crawler triggering when Planning Agent detects news-related subtasks
 - URL-based indexing for O(1) duplicate detection across investigations
+- yarl for URL normalization (immutable URLs, RFC compliance)
+- Domain-based authority: wire services 0.9, .gov/.edu 0.85, .org 0.7, social 0.3
+- Investigation-scoped deduplication allows same URL in different investigations
+- Entity-based context sharing with message bus broadcast on 'context.update' topic
 
 ### Deferred Issues
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-12
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-02-01
+Stopped at: Completed 05-05-PLAN.md
 Resume file: None
