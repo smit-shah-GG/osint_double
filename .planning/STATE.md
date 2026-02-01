@@ -87,6 +87,10 @@ Recent decisions affecting current work:
 - Domain-based authority: wire services 0.9, .gov/.edu 0.85, .org 0.7, social 0.3
 - Investigation-scoped deduplication allows same URL in different investigations
 - Entity-based context sharing with message bus broadcast on 'context.update' topic
+- Reddit authority score: 0.3 for user-generated content
+- Reddit quality thresholds: score > 10, comments > 5 for inclusion
+- Follow comment threads for high-value posts (score > 100)
+- Reddit message bus topics: reddit.crawl, reddit.complete, reddit.failed
 
 ### Deferred Issues
 
