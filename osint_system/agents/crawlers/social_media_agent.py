@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, Callable
 import asyncpraw
 import httpx
 import aiometer
@@ -10,6 +10,7 @@ from yarl import URL
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from osint_system.agents.crawlers.base_crawler import BaseCrawler
+from osint_system.agents.communication.bus import MessageBus
 from osint_system.config.settings import settings
 from osint_system.utils.logging import get_structured_logger
 
@@ -35,6 +36,7 @@ class RedditCrawler(BaseCrawler):
         source_configs: Optional[dict] = None,
         investigation_context: Optional[dict] = None,
         max_requests_per_second: float = 1.0,
+        message_bus: Optional[MessageBus] = None,
     ):
         """
         Initialize Reddit crawler.
@@ -45,6 +47,7 @@ class RedditCrawler(BaseCrawler):
             source_configs: Reddit-specific configurations
             investigation_context: Current investigation context
             max_requests_per_second: Rate limit for API requests
+            message_bus: Optional MessageBus instance for A2A communication
         """
         super().__init__(
             name=name,
@@ -54,6 +57,8 @@ class RedditCrawler(BaseCrawler):
         )
         self.reddit_client: Optional[asyncpraw.Reddit] = None
         self.max_requests_per_second = max_requests_per_second
+        self.message_bus = message_bus or MessageBus()
+        self._message_subscribed = False
 
     async def _init_reddit_client(self) -> asyncpraw.Reddit:
         """
@@ -80,15 +85,27 @@ class RedditCrawler(BaseCrawler):
         )
 
     async def __aenter__(self):
-        """Async context manager entry."""
+        """Async context manager entry - initialize Reddit client and message bus."""
         if not self.reddit_client:
             self.reddit_client = await self._init_reddit_client()
+
+        # Subscribe to message bus topics
+        if not self._message_subscribed:
+            await self._subscribe_to_topics()
+            self._message_subscribed = True
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit - close Reddit client."""
+        """Async context manager exit - close Reddit client and unsubscribe."""
         if self.reddit_client:
             await self.reddit_client.close()
+
+        # Unsubscribe from message bus
+        if self._message_subscribed:
+            self.message_bus.unsubscribe(f"RedditCrawler-{self.agent_id}")
+            self.message_bus.unsubscribe(f"RedditCrawler-{self.agent_id}-crawl")
+            self._message_subscribed = False
 
     @retry(
         stop=stop_after_attempt(3),
@@ -494,3 +511,143 @@ class RedditCrawler(BaseCrawler):
             )
 
         return comments
+
+    # -------------------------------------------------------------------------
+    # Message Bus Integration
+    # -------------------------------------------------------------------------
+
+    async def _subscribe_to_topics(self) -> None:
+        """
+        Subscribe to message bus topics for investigation requests.
+
+        Subscribes to:
+        - reddit.crawl: Explicit crawl request for Reddit data
+        """
+        # Subscribe to Reddit-specific crawl requests
+        self.message_bus.subscribe_to_pattern(
+            subscriber_name=f"RedditCrawler-{self.agent_id}",
+            pattern="reddit.crawl",
+            callback=self.handle_crawl_request
+        )
+
+        logger.info(
+            "RedditCrawler subscribed to message bus topics",
+            extra={"agent_id": self.agent_id}
+        )
+
+    async def handle_crawl_request(self, message: dict) -> None:
+        """
+        Handle reddit.crawl message from the message bus.
+
+        Processes investigation requests and triggers crawl_investigation().
+        Publishes results to reddit.complete or reddit.failed.
+
+        Args:
+            message: Message with investigation details containing:
+                - investigation_id: Unique investigation identifier
+                - keywords: List of search keywords
+                - subreddits: Optional list of subreddits to search
+                - options: Optional crawl configuration
+        """
+        try:
+            payload = message.get("payload", {})
+            investigation_id = payload.get("investigation_id")
+            keywords = payload.get("keywords", [])
+            subreddits = payload.get("subreddits")
+            options = payload.get("options", {})
+
+            if not investigation_id:
+                logger.warning(
+                    "Crawl request missing investigation_id",
+                    extra={"message_id": message.get("id")}
+                )
+                return
+
+            if not keywords:
+                logger.warning(
+                    "Crawl request missing keywords",
+                    extra={
+                        "investigation_id": investigation_id,
+                        "message_id": message.get("id")
+                    }
+                )
+                return
+
+            logger.info(
+                f"Handling Reddit crawl request",
+                extra={
+                    "investigation_id": investigation_id,
+                    "keywords": keywords,
+                    "subreddits": subreddits,
+                }
+            )
+
+            # Execute the crawl
+            result = await self.crawl_investigation(
+                investigation_id=investigation_id,
+                keywords=keywords,
+                subreddits=subreddits,
+                limit_per_subreddit=options.get("limit_per_subreddit", 50),
+                time_filter=options.get("time_filter", "week"),
+            )
+
+            # Publish successful completion
+            await self.message_bus.publish(
+                "reddit.complete",
+                {
+                    "agent": "RedditCrawler",
+                    "investigation_id": investigation_id,
+                    "post_count": len(result.get("posts", [])),
+                    "authority_score": result.get("authority_score", self.AUTHORITY_SCORE),
+                    "metadata": result.get("metadata", {}),
+                    "posts": result.get("posts", []),
+                }
+            )
+
+            logger.info(
+                f"Reddit crawl complete, published to reddit.complete",
+                extra={
+                    "investigation_id": investigation_id,
+                    "post_count": len(result.get("posts", [])),
+                }
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Error handling Reddit crawl request: {e}",
+                extra={
+                    "investigation_id": payload.get("investigation_id") if 'payload' in dir() else None,
+                    "error": str(e),
+                },
+                exc_info=True
+            )
+
+            # Publish failure notification
+            investigation_id = message.get("payload", {}).get("investigation_id")
+            if investigation_id:
+                await self.message_bus.publish(
+                    "reddit.failed",
+                    {
+                        "agent": "RedditCrawler",
+                        "investigation_id": investigation_id,
+                        "error": str(e),
+                    }
+                )
+
+    def get_capabilities(self) -> List[str]:
+        """
+        Return RedditCrawler capabilities.
+
+        Returns:
+            List of capability identifiers
+        """
+        capabilities = super().get_capabilities()
+        capabilities.extend([
+            "reddit_crawling",
+            "subreddit_search",
+            "authority_filtering",
+            "comment_extraction",
+            "investigation_crawling",
+            "message_bus_integration",
+        ])
+        return capabilities
