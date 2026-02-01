@@ -689,6 +689,28 @@ class DocumentCrawler(BaseCrawler):
             "authority_score": data.get("metadata", {}).get("authority_score"),
         }
 
+    async def process(self, input_data: dict) -> dict:
+        """
+        Process input data and return results.
+
+        Implementation of BaseAgent abstract method.
+        Delegates to fetch_data for document processing.
+
+        Args:
+            input_data: Dictionary containing 'url' or 'source' key
+
+        Returns:
+            Dictionary containing processing results and status
+        """
+        url = input_data.get("url") or input_data.get("source")
+        if not url:
+            return {
+                "success": False,
+                "error": "No URL provided in input_data (expected 'url' or 'source' key)",
+            }
+
+        return await self.fetch_data(url)
+
     def get_capabilities(self) -> list[str]:
         """Return document crawler capabilities."""
         return [

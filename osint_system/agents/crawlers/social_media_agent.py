@@ -297,6 +297,83 @@ class RedditCrawler(BaseCrawler):
             }
         }
 
+    async def process(self, input_data: dict) -> dict:
+        """
+        Process input data to fetch Reddit content.
+
+        Core execution method that handles investigation-driven Reddit crawling.
+        Accepts investigation parameters and delegates to crawl_investigation().
+
+        Args:
+            input_data: Dictionary containing:
+                - investigation_id: Unique investigation identifier
+                - keywords: List of search keywords
+                - subreddits: Optional list of subreddits to search
+                - options: Optional crawl configuration (limit_per_subreddit, time_filter)
+
+        Returns:
+            Dictionary containing:
+            - success: Boolean indicating if processing succeeded
+            - investigation_id: The investigation ID
+            - posts: List of filtered posts with authority scores
+            - metadata: Crawl metadata
+            - error: Error message if processing failed
+        """
+        try:
+            investigation_id = input_data.get("investigation_id")
+            keywords = input_data.get("keywords", [])
+            subreddits = input_data.get("subreddits")
+            options = input_data.get("options", {})
+
+            if not investigation_id:
+                return {
+                    "success": False,
+                    "error": "Missing required field: investigation_id",
+                    "posts": [],
+                    "metadata": {},
+                }
+
+            if not keywords:
+                return {
+                    "success": False,
+                    "error": "Missing required field: keywords",
+                    "investigation_id": investigation_id,
+                    "posts": [],
+                    "metadata": {},
+                }
+
+            # Execute investigation crawl
+            result = await self.crawl_investigation(
+                investigation_id=investigation_id,
+                keywords=keywords,
+                subreddits=subreddits,
+                limit_per_subreddit=options.get("limit_per_subreddit", 50),
+                time_filter=options.get("time_filter", "week"),
+            )
+
+            return {
+                "success": True,
+                "investigation_id": result["investigation_id"],
+                "posts": result["posts"],
+                "authority_score": result["authority_score"],
+                "metadata": result["metadata"],
+                "error": None,
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Error in RedditCrawler.process: {e}",
+                extra={"input_data": input_data},
+                exc_info=True
+            )
+            return {
+                "success": False,
+                "error": str(e),
+                "investigation_id": input_data.get("investigation_id"),
+                "posts": [],
+                "metadata": {},
+            }
+
     # Authority filtering thresholds (per RESEARCH.md)
     AUTHORITY_SCORE = 0.3  # Reddit content authority score
     MIN_SCORE_THRESHOLD = 10
