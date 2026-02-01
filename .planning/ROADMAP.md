@@ -18,9 +18,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Environment Setup** - Python environment, Gemini API, project structure ✓ Complete
 - [x] **Phase 2: Base Agent Architecture** - Core agent classes, MCP/A2A protocols ✓ Complete
-- [ ] **Phase 3: Planning & Orchestration Agent** - Task decomposition and hierarchical coordination (2/3 plans complete)
-- [ ] **Phase 4: News Crawler Implementation** - RSS feeds and news API integration
-- [ ] **Phase 5: Extended Crawler Cohort** - Social media and document crawlers
+- [x] **Phase 3: Planning & Orchestration Agent** - Task decomposition and hierarchical coordination ✓ Complete
+- [x] **Phase 4: News Crawler Implementation** - RSS feeds and news API integration ✓ Complete
+- [x] **Phase 5: Extended Crawler Cohort** - Social media and document crawlers ✓ Complete
 - [ ] **Phase 6: Fact Extraction Pipeline** - LLM-powered fact identification and extraction
 - [ ] **Phase 7: Fact Classification System** - Three-tier categorization and credibility assessment
 - [ ] **Phase 8: Verification Loop** - Dubious fact investigation and re-classification
@@ -92,16 +92,17 @@ Plans:
 **Depends on**: Phase 4
 **Research**: Complete ✓
 **Research topics**: Reddit API authentication, web scraping best practices, document parsing libraries
-**Plans**: 6 plans (1/6 complete)
-**Status**: In progress
+**Plans**: 6 plans (6/6 complete)
+**Status**: Complete ✓
+**Completed**: 2026-02-01
 
 Plans:
 - [x] 05-01: Reddit crawler setup ✓
-- [ ] 05-02: Reddit data collection and integration
-- [ ] 05-03: Document scraper setup
-- [ ] 05-04: Document parsing and extraction
-- [ ] 05-05: Crawler coordination system
-- [ ] 05-06: Cross-source entity tracking
+- [x] 05-02: Reddit data collection and integration ✓
+- [x] 05-03: Document crawler setup ✓
+- [x] 05-04: Web scraper enhancement ✓
+- [x] 05-05: Crawler coordination system ✓
+- [x] 05-06: Integration testing ✓
 
 ### Phase 6: Fact Extraction Pipeline
 **Goal**: Extract discrete, verifiable facts from raw text with structured output
@@ -175,7 +176,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Base Agent Architecture | 4/4 | Complete ✓ | 2026-01-12 |
 | 3. Planning & Orchestration Agent | 3/3 | Complete ✓ | 2026-01-12 |
 | 4. News Crawler Implementation | 4/4 | Complete ✓ | 2026-01-13 |
-| 5. Extended Crawler Cohort | 0/4 | Not started | - |
+| 5. Extended Crawler Cohort | 6/6 | Complete ✓ | 2026-02-01 |
 | 6. Fact Extraction Pipeline | 0/3 | Not started | - |
 | 7. Fact Classification System | 0/3 | Not started | - |
 | 8. Verification Loop | 0/4 | Not started | - |
