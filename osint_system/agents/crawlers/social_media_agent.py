@@ -279,3 +279,218 @@ class RedditCrawler(BaseCrawler):
                 "community_size": None,  # Could fetch from subreddit info
             }
         }
+
+    # Authority filtering thresholds (per RESEARCH.md)
+    AUTHORITY_SCORE = 0.3  # Reddit content authority score
+    MIN_SCORE_THRESHOLD = 10
+    MIN_COMMENTS_THRESHOLD = 5
+    HIGH_VALUE_SCORE_THRESHOLD = 100  # Posts above this get comment extraction
+    DEFAULT_SUBREDDITS = ["news", "worldnews", "geopolitics"]
+
+    async def crawl_investigation(
+        self,
+        investigation_id: str,
+        keywords: List[str],
+        subreddits: Optional[List[str]] = None,
+        limit_per_subreddit: int = 50,
+        time_filter: str = "week",
+    ) -> Dict[str, Any]:
+        """
+        Crawl Reddit for investigation-relevant content with authority filtering.
+
+        Searches across multiple subreddits for posts matching keywords, applies
+        authority filtering (score, comments, author verification), and follows
+        comment chains for high-value posts.
+
+        Args:
+            investigation_id: Unique identifier for the investigation
+            keywords: List of search keywords
+            subreddits: Subreddits to search (defaults to news, worldnews, geopolitics)
+            limit_per_subreddit: Maximum posts per subreddit search
+            time_filter: Time filter for search (hour, day, week, month, year, all)
+
+        Returns:
+            Dictionary containing:
+            - investigation_id: The investigation ID
+            - posts: List of filtered, structured posts with authority scores
+            - metadata: Crawl metadata (counts, subreddits searched, etc.)
+            - authority_score: Base authority score for Reddit content (0.3)
+        """
+        if not self.reddit_client:
+            self.reddit_client = await self._init_reddit_client()
+
+        target_subreddits = subreddits or self.DEFAULT_SUBREDDITS
+        search_query = " OR ".join(keywords)
+
+        all_posts = []
+        subreddits_searched = []
+        total_found = 0
+        total_filtered = 0
+
+        logger.info(
+            f"Starting investigation crawl",
+            extra={
+                "investigation_id": investigation_id,
+                "keywords": keywords,
+                "subreddits": target_subreddits,
+            }
+        )
+
+        for subreddit_name in target_subreddits:
+            try:
+                subreddit = await self.reddit_client.subreddit(subreddit_name)
+                subreddits_searched.append(subreddit_name)
+
+                # Search subreddit with keywords
+                async for submission in subreddit.search(
+                    search_query,
+                    time_filter=time_filter,
+                    limit=limit_per_subreddit,
+                ):
+                    total_found += 1
+
+                    # Authority filtering: score threshold
+                    if submission.score < self.MIN_SCORE_THRESHOLD:
+                        total_filtered += 1
+                        continue
+
+                    # Authority filtering: comments threshold
+                    if submission.num_comments < self.MIN_COMMENTS_THRESHOLD:
+                        total_filtered += 1
+                        continue
+
+                    # Authority filtering: author verification (not deleted/suspended)
+                    if not self._is_valid_author(submission.author):
+                        total_filtered += 1
+                        continue
+
+                    # Extract post data
+                    post_data = await self.extract_post_data(submission)
+                    if not post_data:
+                        continue
+
+                    # Add authority score to post
+                    post_data["authority_score"] = self.AUTHORITY_SCORE
+                    post_data["investigation_id"] = investigation_id
+
+                    # Follow comment chains for high-value posts
+                    if submission.score >= self.HIGH_VALUE_SCORE_THRESHOLD:
+                        comments = await self._extract_top_comments(submission)
+                        post_data["top_comments"] = comments
+
+                    all_posts.append(post_data)
+
+            except Exception as e:
+                logger.error(
+                    f"Error crawling subreddit {subreddit_name}: {e}",
+                    extra={
+                        "investigation_id": investigation_id,
+                        "subreddit": subreddit_name,
+                    }
+                )
+                continue
+
+        result = {
+            "investigation_id": investigation_id,
+            "posts": all_posts,
+            "authority_score": self.AUTHORITY_SCORE,
+            "metadata": {
+                "keywords": keywords,
+                "subreddits_searched": subreddits_searched,
+                "time_filter": time_filter,
+                "total_found": total_found,
+                "total_filtered": total_filtered,
+                "posts_returned": len(all_posts),
+                "crawled_at": datetime.now(timezone.utc).isoformat(),
+            }
+        }
+
+        logger.info(
+            f"Investigation crawl complete",
+            extra={
+                "investigation_id": investigation_id,
+                "posts_found": len(all_posts),
+                "total_searched": total_found,
+                "filtered_out": total_filtered,
+            }
+        )
+
+        return result
+
+    def _is_valid_author(self, author) -> bool:
+        """
+        Check if a Reddit author is valid (not deleted or suspended).
+
+        Args:
+            author: asyncpraw Redditor object or None
+
+        Returns:
+            True if author is valid, False otherwise
+        """
+        if author is None:
+            return False
+
+        author_name = str(author)
+        # Check for deleted or suspended indicators
+        if author_name in ("[deleted]", "[removed]", "None"):
+            return False
+
+        return True
+
+    async def _extract_top_comments(
+        self,
+        submission,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract top comments from a high-value submission.
+
+        Follows the comment chain for posts with high engagement to capture
+        additional context and discussion.
+
+        Args:
+            submission: asyncpraw submission object
+            limit: Maximum number of top comments to extract
+
+        Returns:
+            List of comment dictionaries with content and metadata
+        """
+        comments = []
+
+        try:
+            # Load comments (replace MoreComments with actual comments)
+            await submission.load()
+            submission.comments.replace_more(limit=0)  # Skip "more comments" links
+
+            # Extract top-level comments sorted by score
+            for comment in submission.comments[:limit]:
+                if not hasattr(comment, 'body'):
+                    continue
+
+                # Skip deleted/removed comments
+                if comment.body in ("[deleted]", "[removed]"):
+                    continue
+
+                # Apply same author validation
+                if not self._is_valid_author(comment.author):
+                    continue
+
+                comment_data = {
+                    "id": comment.id,
+                    "body": comment.body,
+                    "score": comment.score,
+                    "author": str(comment.author) if comment.author else "[deleted]",
+                    "created_utc": datetime.fromtimestamp(
+                        comment.created_utc, tz=timezone.utc
+                    ).isoformat(),
+                    "is_submitter": comment.is_submitter,
+                }
+                comments.append(comment_data)
+
+        except Exception as e:
+            logger.warning(
+                f"Error extracting comments: {e}",
+                extra={"submission_id": submission.id}
+            )
+
+        return comments
