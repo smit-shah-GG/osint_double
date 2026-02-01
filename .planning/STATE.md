@@ -91,6 +91,11 @@ Recent decisions affecting current work:
 - Reddit quality thresholds: score > 10, comments > 5 for inclusion
 - Follow comment threads for high-value posts (score > 100)
 - Reddit message bus topics: reddit.crawl, reddit.complete, reddit.failed
+- pypdfium2 as primary PDF extractor (best quality), pdfplumber for table fallback
+- trafilatura for web content extraction (F1 0.958)
+- Three-stage extraction fallback: trafilatura (precision) -> trafilatura (recall) -> BeautifulSoup
+- Minimum content length 500 chars for quality filtering
+- Domain-based authority scoring: .gov/.edu 0.9, .org 0.7, default 0.5
 
 ### Deferred Issues
 
@@ -103,5 +108,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 05-05-PLAN.md
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
