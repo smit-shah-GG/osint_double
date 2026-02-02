@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 6 of 10 (Fact Extraction Pipeline)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-03 — Completed 06-01-PLAN.md
+Last activity: 2026-02-03 - Completed 06-02-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 55%
+Progress: ████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 57%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
-- Average duration: 26.9 min
-- Total execution time: 619 min
+- Total plans completed: 24
+- Average duration: 26.0 min
+- Total execution time: 624 min
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: ███████████████████████�
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
-| 06-fact-extraction-pipeline | 1/4 | 12 min | 12 min |
+| 06-fact-extraction-pipeline | 2/4 | 17 min | 8.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-03 (12 min), 05-04 (5 min), 05-05 (3 min), 05-06 (8 min), 06-01 (12 min)
+- Last 5 plans: 05-04 (5 min), 05-05 (3 min), 05-06 (8 min), 06-01 (12 min), 06-02 (5 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -107,6 +107,11 @@ Recent decisions affecting current work:
 - Entity clustering without forced resolution
 - Full provenance chains with hop count AND source type (separate dimensions)
 - Denials represented as underlying claim with assertion_type='denial'
+- Entity markers [E1:name] in claim text linking to structured entity objects
+- Default min_confidence=0.0 (include all facts, downstream filters)
+- Lazy Gemini client initialization via property accessor
+- Chunk size 12000 chars for long document processing
+- Entity type normalization (ORG/LOC/PER/GPE -> EntityType enum)
 
 ### Deferred Issues
 
@@ -119,19 +124,22 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 06-01-PLAN.md (Pydantic schemas for fact extraction)
-Resume file: .planning/phases/06-fact-extraction-pipeline/06-02-PLAN.md
+Stopped at: Completed 06-02-PLAN.md (FactExtractionAgent with Gemini prompts)
+Resume file: .planning/phases/06-fact-extraction-pipeline/06-03-PLAN.md
 
 ## Phase 6 Progress
 
 Fact extraction pipeline in progress:
 - **06-01:** Complete - Pydantic schemas (ExtractedFact, Entity, Provenance)
-- **06-02:** Not started - FactExtractionAgent with Gemini prompts
+- **06-02:** Complete - FactExtractionAgent with Gemini prompts
 - **06-03:** Not started - FactStore and FactConsolidator for dedup/storage
 - **06-04:** Not started - ExtractionPipeline bridging crawler output to fact extraction
 
-Key patterns established in 06-01:
+Key patterns established:
 - Entity markers in claim text: [E1:Putin] visited [E2:Beijing]
 - Temporal markers with precision: T1:March 2024, precision:month, temporal_precision:explicit
 - Schema version field for forward compatibility
 - model_validator for auto-computing content_hash from claim.text
+- BaseSifter.sift() abstract method for all analytical agents
+- Lazy Gemini client initialization via property accessor
+- Entity type normalization: ORG/LOC/PER/GPE -> standard EntityType enum
