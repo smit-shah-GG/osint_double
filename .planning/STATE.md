@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 6 In Progress
+**Current focus:** Phase 6 Complete - Ready for Phase 7
 
 ## Current Position
 
 Phase: 6 of 10 (Fact Extraction Pipeline)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-03 - Completed 06-03-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-02-03 - Completed 06-04-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 60%
+Progress: ██████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
-- Average duration: 25.2 min
-- Total execution time: 631 min
+- Total plans completed: 26
+- Average duration: 24.4 min
+- Total execution time: 635 min
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: ███████████████████████�
 | 03-planning-orchestration | 3/3 | 146 min | 48.7 min |
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
-| 06-fact-extraction-pipeline | 3/4 | 24 min | 8 min |
+| 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-05 (3 min), 05-06 (8 min), 06-01 (12 min), 06-02 (5 min), 06-03 (7 min)
+- Last 5 plans: 05-06 (8 min), 06-01 (12 min), 06-02 (5 min), 06-03 (7 min), 06-04 (4 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -116,6 +116,10 @@ Recent decisions affecting current work:
 - Bidirectional variant linking for consistency
 - 0.3 semantic threshold for consolidation (when embeddings enabled)
 - Provenance merging tracks additional_sources for corroboration
+- Lazy pipeline component initialization via property accessors
+- Concurrent batch extraction using asyncio.gather
+- Failed extractions don't stop pipeline (partial recovery)
+- Article title prepended to content for extraction context
 
 ### Deferred Issues
 
@@ -128,16 +132,16 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 06-03-PLAN.md (FactStore and FactConsolidator)
-Resume file: .planning/phases/06-fact-extraction-pipeline/06-04-PLAN.md
+Stopped at: Completed 06-04-PLAN.md (ExtractionPipeline)
+Resume file: None (Phase 6 complete)
 
-## Phase 6 Progress
+## Phase 6 Complete
 
-Fact extraction pipeline in progress:
+Fact extraction pipeline completed:
 - **06-01:** Complete - Pydantic schemas (ExtractedFact, Entity, Provenance)
 - **06-02:** Complete - FactExtractionAgent with Gemini prompts
 - **06-03:** Complete - FactStore and FactConsolidator for dedup/storage
-- **06-04:** Not started - ExtractionPipeline bridging crawler output to fact extraction
+- **06-04:** Complete - ExtractionPipeline bridging crawler output to fact extraction
 
 Key patterns established:
 - Entity markers in claim text: [E1:Putin] visited [E2:Beijing]
@@ -150,3 +154,13 @@ Key patterns established:
 - FactStore follows ArticleStore patterns for investigation scoping
 - Bidirectional variant linking for consistency
 - ConsolidationStats dataclass for tracking dedup metrics
+- ExtractionPipeline lazy component initialization
+
+**Phase 6 deliverable:**
+```python
+from osint_system.pipelines import ExtractionPipeline
+
+pipeline = ExtractionPipeline()
+result = await pipeline.process_investigation('my-investigation')
+# Articles from ArticleStore -> FactExtractionAgent -> FactConsolidator -> FactStore
+```
