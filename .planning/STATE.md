@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 7 of 10 (Fact Classification System)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-03 - Completed 07-02-PLAN.md
+Last activity: 2026-02-03 - Completed 07-03-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░ 70%
+Progress: ██████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░ 72.5%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
-- Average duration: 23.4 min
-- Total execution time: 654 min
+- Total plans completed: 29
+- Average duration: 22.7 min
+- Total execution time: 659 min
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: ███████████████████████�
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
-| 07-fact-classification-system | 2/3 | 19 min | 9.5 min |
+| 07-fact-classification-system | 3/3 | 24 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-02 (5 min), 06-03 (7 min), 06-04 (4 min), 07-01 (8 min), 07-02 (11 min)
+- Last 5 plans: 06-03 (7 min), 06-04 (4 min), 07-01 (8 min), 07-02 (11 min), 07-03 (5 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -129,6 +129,10 @@ Recent decisions affecting current work:
 - Echo dampening alpha: 0.2 for logarithmic dampening (botnet-proof)
 - Precision weights: entity 30%, temporal 30%, quote 20%, document 20%
 - Single-source scoring in Phase 7 (full multi-source in Phase 8)
+- Boolean logic gates for dubious detection (not weighted formulas)
+- Fixability priority: FOG (0.9) > ANOMALY (0.8) > PHANTOM (0.6) > NOISE (0.1)
+- Pure NOISE facts get 0.0 fixability (batch analysis only)
+- 14 compiled regex patterns for vague attribution detection
 
 ### Deferred Issues
 
@@ -141,15 +145,15 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 07-02-PLAN.md (Credibility Scoring System)
-Resume file: .planning/phases/07-fact-classification-system/07-03-PLAN.md
+Stopped at: Completed 07-03-PLAN.md (Dubious Detection System)
+Resume file: .planning/phases/07-fact-classification-system/07-04-PLAN.md
 
 ## Phase 7 Progress
 
-Classification system in progress:
+Classification system complete (3/3 plans):
 - **07-01:** Complete - FactClassification schema, ClassificationStore, FactClassificationAgent shell
 - **07-02:** Complete - Credibility scoring formula implementation
-- **07-03:** Pending - Dubious flag detection and impact assessment
+- **07-03:** Complete - Dubious detection with Boolean logic gates
 
 Key patterns established:
 - Classifications separate from facts (linked by fact_id)
@@ -162,23 +166,22 @@ Key patterns established:
 - Priority calculation: Impact x Fixability
 - NOISE-only excluded from verification queue (batch analysis only)
 
-**Phase 7 Plan 02 adds credibility scoring:**
-- SourceCredibilityScorer: SourceCred x Proximity x Precision
-- 25 pre-configured source baselines (Reuters 0.9, RT 0.4, Twitter 0.3)
-- Domain pattern matching (.gov 0.85, .edu 0.85, .org 0.7)
-- Proximity decay: 0.7^hop (hop=2 -> 0.49)
-- EchoDetector: alpha * log10(1 + sum(echoes)) for botnet-proof dampening
+**Phase 7 Plan 03 adds dubious detection:**
+- DubiousDetector with Boolean logic gates (not weighted formulas)
+- PHANTOM: hop_count > 2 AND primary_source IS NULL
+- FOG: claim_clarity < 0.5 OR vague attribution patterns
+- ANOMALY: contradiction_count > 0 (external input)
+- NOISE: source_credibility < 0.3 (batch only)
+- Fixability scoring for Phase 8 queue prioritization
+- 14 vague attribution regex patterns for FOG detection
 
-**Phase 7 Plan 02 deliverable:**
+**Phase 7 Plan 03 deliverable:**
 ```python
-from osint_system.agents.sifters.credibility import SourceCredibilityScorer, EchoDetector
+from osint_system.agents.sifters.classification import DubiousDetector, DubiousResult
 
-scorer = SourceCredibilityScorer()
-score, breakdown = scorer.compute_credibility(fact)
-# score: 0.0-1.0 combined credibility
-# breakdown: CredibilityBreakdown with s_root, proximity_scores, precision_scores
-
-detector = EchoDetector()
-echo_score = detector.analyze_sources(provenances, scores)
-# echo_score: EchoScore with root_score, echo_bonus, total_score, circular_warning
+detector = DubiousDetector()
+result = detector.detect(fact_dict, credibility_score=0.5, contradictions=[])
+# result.flags: List[DubiousFlag] - which species triggered
+# result.reasoning: List[ClassificationReasoning] - why each triggered
+# result.fixability_score: 0.0-1.0 - verification priority
 ```
