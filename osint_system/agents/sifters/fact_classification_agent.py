@@ -8,10 +8,16 @@ Per Phase 7 CONTEXT.md:
 
 Classification flow:
 1. Compute credibility score (SourceCredibilityScorer)
-2. Assess impact tier (critical vs less-critical)
-3. Detect dubious flags via Boolean logic gates
-4. Calculate priority score (Impact x Fixability)
-5. Store classification record
+2. Assess impact tier (ImpactAssessor)
+3. Detect dubious flags via Boolean logic gates (DubiousDetector)
+4. Detect anomalies via contradiction detection (AnomalyDetector)
+5. Calculate priority score (Impact x Fixability)
+6. Store classification record
+
+Integration points:
+- DubiousDetector provides PHANTOM/FOG/ANOMALY/NOISE detection
+- ImpactAssessor provides CRITICAL/LESS_CRITICAL determination
+- AnomalyDetector provides contradiction input for ANOMALY flag
 """
 
 from typing import Any, Dict, List, Optional
@@ -19,6 +25,16 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from osint_system.agents.sifters.base_sifter import BaseSifter
+from osint_system.agents.sifters.classification import (
+    DubiousDetector,
+    DubiousResult,
+    ImpactAssessor,
+    ImpactResult,
+)
+from osint_system.agents.sifters.classification.anomaly_detector import (
+    AnomalyDetector,
+    Contradiction,
+)
 from osint_system.agents.sifters.credibility import (
     EchoDetector,
     SourceCredibilityScorer,
@@ -104,6 +120,27 @@ class FactClassificationAgent(BaseSifter):
         if not hasattr(self, "_echo_detector") or self._echo_detector is None:
             self._echo_detector = EchoDetector()
         return self._echo_detector
+
+    @property
+    def dubious_detector(self) -> DubiousDetector:
+        """Lazy initialization of dubious detector."""
+        if not hasattr(self, "_dubious_detector") or self._dubious_detector is None:
+            self._dubious_detector = DubiousDetector()
+        return self._dubious_detector
+
+    @property
+    def impact_assessor(self) -> ImpactAssessor:
+        """Lazy initialization of impact assessor."""
+        if not hasattr(self, "_impact_assessor") or self._impact_assessor is None:
+            self._impact_assessor = ImpactAssessor()
+        return self._impact_assessor
+
+    @property
+    def anomaly_detector(self) -> AnomalyDetector:
+        """Lazy initialization of anomaly detector."""
+        if not hasattr(self, "_anomaly_detector") or self._anomaly_detector is None:
+            self._anomaly_detector = AnomalyDetector()
+        return self._anomaly_detector
 
     async def sift(self, content: dict) -> list[dict]:
         """
@@ -270,12 +307,13 @@ class FactClassificationAgent(BaseSifter):
         """
         Assess impact tier based on geopolitical significance.
 
-        Per CONTEXT.md: Impact based on:
-        - Entity significance (world leaders > local officials)
-        - Event type (military action > diplomatic meeting > routine statement)
-        - Investigation context (recency, objective relevance)
+        Per CONTEXT.md: Impact based on entity significance AND event type.
+        Investigation-relative: same fact may be critical in one investigation.
 
-        Plan 03 implements the full algorithm. This is the shell.
+        Uses ImpactAssessor for full implementation with:
+        - Entity significance (world leaders 1.0, officials 0.8, orgs 0.6)
+        - Event type (military 1.0, treaties 0.9, diplomatic 0.7)
+        - Optional investigation context boost
 
         Args:
             fact: ExtractedFact dict
@@ -284,62 +322,61 @@ class FactClassificationAgent(BaseSifter):
         Returns:
             (impact_tier, reasoning) tuple
         """
-        # Placeholder: Plan 03 implements context-aware impact assessment
-        # For now: default to less_critical
-        return ImpactTier.LESS_CRITICAL, "Default classification pending full implementation"
+        # Get investigation context if available (future enhancement)
+        # Would come from investigation metadata store
+        investigation_context = None
+
+        result = self.impact_assessor.assess(fact, investigation_context)
+
+        return result.tier, result.reasoning
 
     def _detect_dubious(
         self,
         fact: Dict[str, Any],
         credibility_score: float,
-    ) -> tuple[list[DubiousFlag], list[ClassificationReasoning]]:
+        contradictions: Optional[List[Dict[str, Any]]] = None,
+    ) -> tuple[list[DubiousFlag], list]:
         """
         Detect dubious flags using Boolean logic gates.
 
         Per CONTEXT.md taxonomy:
         - PHANTOM: hop_count > 2 AND primary_source IS NULL
-        - FOG: claim_clarity < 0.5 OR attribution ~= "sources say"
+        - FOG: claim_clarity < 0.5 OR vague attribution patterns
         - ANOMALY: contradiction_count > 0
         - NOISE: source_credibility < 0.3
 
-        Plan 03 implements the full detection logic. This is the shell.
+        Uses DubiousDetector for full implementation with:
+        - 14 compiled vague attribution patterns for FOG
+        - Fixability scoring for Phase 8 queue prioritization
+        - Pure NOISE exclusion from individual verification queue
 
         Args:
             fact: ExtractedFact dict
             credibility_score: Pre-computed credibility score
+            contradictions: Optional list of contradicting facts for ANOMALY
 
         Returns:
-            (dubious_flags, classification_reasoning) tuple
+            (dubious_flags, classification_reasoning_dicts) tuple
         """
-        # Placeholder: Plan 03 implements Boolean logic gates
-        flags: List[DubiousFlag] = []
-        reasoning: List[ClassificationReasoning] = []
+        # For single-fact classification (sift method), we skip ANOMALY
+        # For batch classification (classify_investigation), contradictions provided
+        result = self.dubious_detector.detect(
+            fact,
+            credibility_score,
+            contradictions if contradictions else None,
+        )
 
-        # Basic noise detection based on credibility
-        if credibility_score < 0.3:
-            flags.append(DubiousFlag.NOISE)
-            reasoning.append(
-                ClassificationReasoning(
-                    flag=DubiousFlag.NOISE,
-                    reason=f"credibility_score ({credibility_score:.2f}) < 0.3",
-                    trigger_values={"credibility_score": credibility_score},
-                )
-            )
+        # Convert ClassificationReasoning objects to dicts for serialization
+        reasoning_dicts = [
+            {
+                "flag": r.flag.value,
+                "reason": r.reason,
+                "trigger_values": r.trigger_values,
+            }
+            for r in result.reasoning
+        ]
 
-        # Basic fog detection based on claim_clarity
-        quality = fact.get("quality", {})
-        claim_clarity = quality.get("claim_clarity", 0.5) if quality else 0.5
-        if claim_clarity < 0.5:
-            flags.append(DubiousFlag.FOG)
-            reasoning.append(
-                ClassificationReasoning(
-                    flag=DubiousFlag.FOG,
-                    reason=f"claim_clarity ({claim_clarity:.2f}) < 0.5",
-                    trigger_values={"claim_clarity": claim_clarity},
-                )
-            )
-
-        return flags, reasoning
+        return result.flags, reasoning_dicts
 
     def _calculate_priority(
         self,
@@ -429,36 +466,104 @@ class FactClassificationAgent(BaseSifter):
     async def classify_investigation(
         self,
         investigation_id: str,
-    ) -> Dict[str, Any]:
+        facts: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Dict[str, Any]]:
         """
-        Classify all facts in an investigation.
+        Classify all facts in an investigation with full anomaly detection.
 
-        Retrieves facts from FactStore and classifies them.
+        This method enables ANOMALY detection by comparing facts against each other.
+        Unlike the basic sift() method, this performs cross-fact contradiction
+        detection before classifying each fact.
+
+        Per CONTEXT.md: Within-investigation detection for all facts.
 
         Args:
-            investigation_id: Investigation to classify
+            investigation_id: Investigation identifier
+            facts: Optional list of facts (fetches from store if None)
 
         Returns:
-            Classification stats
+            List of FactClassification dicts
         """
-        # Get all facts for investigation
-        result = await self.fact_store.retrieve_by_investigation(investigation_id)
-        facts = result.get("facts", [])
+        # Get facts if not provided
+        if facts is None:
+            result = await self.fact_store.retrieve_by_investigation(investigation_id)
+            facts = result.get("facts", [])
 
         if not facts:
-            self.logger.warning(f"No facts found for investigation {investigation_id}")
-            return {"classified": 0, "investigation_id": investigation_id}
+            self.logger.warning(f"No facts to classify in {investigation_id}")
+            return []
 
-        # Classify via sift()
-        classifications = await self.sift(
-            {"facts": facts, "investigation_id": investigation_id}
+        classifications = []
+
+        # First pass: detect contradictions across all facts
+        contradiction_map: Dict[str, List[Dict[str, Any]]] = {}
+        for fact in facts:
+            fact_id = fact.get("fact_id", "unknown")
+            contradictions = await self.anomaly_detector.find_contradictions(fact, facts)
+            if contradictions:
+                # Convert Contradiction objects to dicts for DubiousDetector
+                contradiction_map[fact_id] = [
+                    {"fact_id": c.fact_id_b, "type": c.contradiction_type, "confidence": c.confidence}
+                    for c in contradictions
+                ]
+
+        # Second pass: classify each fact with contradiction info
+        for fact in facts:
+            fact_id = fact.get("fact_id", "unknown")
+
+            try:
+                # Compute credibility
+                credibility_score, credibility_breakdown = self._compute_credibility(fact)
+
+                # Assess impact
+                impact_tier, impact_reasoning = self._assess_impact(fact, investigation_id)
+
+                # Detect dubious (WITH contradictions for ANOMALY)
+                contradictions = contradiction_map.get(fact_id, [])
+                dubious_flags, reasoning_dicts = self._detect_dubious(
+                    fact,
+                    credibility_score,
+                    contradictions if contradictions else None,
+                )
+
+                # Calculate priority
+                priority_score = self._calculate_priority(
+                    impact_tier, dubious_flags, credibility_score
+                )
+
+                classification = FactClassification(
+                    fact_id=fact_id,
+                    investigation_id=investigation_id,
+                    impact_tier=impact_tier,
+                    dubious_flags=dubious_flags,
+                    priority_score=priority_score,
+                    credibility_score=credibility_score,
+                    credibility_breakdown=credibility_breakdown,
+                    classification_reasoning=reasoning_dicts,
+                    impact_reasoning=impact_reasoning,
+                )
+
+                classifications.append(classification.model_dump(mode="json"))
+
+            except Exception as e:
+                self.logger.error(f"Failed to classify fact {fact_id}: {e}")
+                continue
+
+        # Save all classifications
+        if classifications:
+            await self.classification_store.save_classifications(
+                investigation_id,
+                [FactClassification(**c) for c in classifications],
+            )
+
+        self.logger.info(
+            f"Classified {len(classifications)} facts in {investigation_id}",
+            with_anomalies=len(contradiction_map),
+            critical=len([c for c in classifications if c.get("impact_tier") == "critical"]),
+            dubious=len([c for c in classifications if c.get("dubious_flags")]),
         )
 
-        return {
-            "classified": len(classifications),
-            "investigation_id": investigation_id,
-            "stats": await self.classification_store.get_stats(investigation_id),
-        }
+        return classifications
 
     async def get_classification_stats(
         self,
