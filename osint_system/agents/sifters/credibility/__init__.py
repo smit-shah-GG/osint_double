@@ -12,8 +12,16 @@ from osint_system.agents.sifters.credibility.source_scorer import (
     SourceCredibilityScorer,
     SourceScore,
 )
+from osint_system.agents.sifters.credibility.echo_detector import (
+    EchoDetector,
+    EchoScore,
+    EchoCluster,
+)
 
 __all__ = [
     "SourceCredibilityScorer",
     "SourceScore",
+    "EchoDetector",
+    "EchoScore",
+    "EchoCluster",
 ]
