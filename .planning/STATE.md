@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 6 Complete - Ready for Phase 7
+**Current focus:** Phase 7 - Fact Classification System
 
 ## Current Position
 
-Phase: 6 of 10 (Fact Extraction Pipeline)
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-02-03 - Completed 06-04-PLAN.md
+Phase: 7 of 10 (Fact Classification System)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-03 - Completed 07-01-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 65%
+Progress: █████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 68%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26
-- Average duration: 24.4 min
-- Total execution time: 635 min
+- Total plans completed: 27
+- Average duration: 23.7 min
+- Total execution time: 643 min
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: ███████████████████████�
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
+| 07-fact-classification-system | 1/3 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-06 (8 min), 06-01 (12 min), 06-02 (5 min), 06-03 (7 min), 06-04 (4 min)
+- Last 5 plans: 06-01 (12 min), 06-02 (5 min), 06-03 (7 min), 06-04 (4 min), 07-01 (8 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -120,6 +121,10 @@ Recent decisions affecting current work:
 - Concurrent batch extraction using asyncio.gather
 - Failed extractions don't stop pipeline (partial recovery)
 - Article title prepended to content for extraction context
+- Classifications separate from facts (facts immutable, classifications mutable)
+- Impact tier and dubious flags are orthogonal dimensions
+- Taxonomy of doubt: phantom/fog/anomaly/noise species
+- NOISE-only facts excluded from individual verification queue (batch analysis)
 
 ### Deferred Issues
 
@@ -132,35 +137,36 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 06-04-PLAN.md (ExtractionPipeline)
-Resume file: None (Phase 6 complete)
+Stopped at: Completed 07-01-PLAN.md (Classification Schema and Agent Structure)
+Resume file: .planning/phases/07-fact-classification-system/07-02-PLAN.md
 
-## Phase 6 Complete
+## Phase 7 Progress
 
-Fact extraction pipeline completed:
-- **06-01:** Complete - Pydantic schemas (ExtractedFact, Entity, Provenance)
-- **06-02:** Complete - FactExtractionAgent with Gemini prompts
-- **06-03:** Complete - FactStore and FactConsolidator for dedup/storage
-- **06-04:** Complete - ExtractionPipeline bridging crawler output to fact extraction
+Classification system in progress:
+- **07-01:** Complete - FactClassification schema, ClassificationStore, FactClassificationAgent shell
+- **07-02:** Pending - Credibility scoring formula implementation
+- **07-03:** Pending - Dubious flag detection and impact assessment
 
 Key patterns established:
-- Entity markers in claim text: [E1:Putin] visited [E2:Beijing]
-- Temporal markers with precision: T1:March 2024, precision:month, temporal_precision:explicit
-- Schema version field for forward compatibility
-- model_validator for auto-computing content_hash from claim.text
-- BaseSifter.sift() abstract method for all analytical agents
-- Lazy Gemini client initialization via property accessor
-- Entity type normalization: ORG/LOC/PER/GPE -> standard EntityType enum
-- FactStore follows ArticleStore patterns for investigation scoping
-- Bidirectional variant linking for consistency
-- ConsolidationStats dataclass for tracking dedup metrics
-- ExtractionPipeline lazy component initialization
+- Classifications separate from facts (linked by fact_id)
+- ImpactTier (critical/less_critical) and DubiousFlag (phantom/fog/anomaly/noise)
+- Orthogonal dimensions: impact tier and dubious status independent
+- CredibilityBreakdown for full score decomposition
+- ClassificationReasoning explains WHY each flag was triggered
+- ClassificationHistory for full audit trail
+- ClassificationStore with flag-type and tier indexes for Phase 8
+- Priority calculation: Impact x Fixability
+- NOISE-only excluded from verification queue (batch analysis only)
 
-**Phase 6 deliverable:**
+**Phase 7 Plan 01 deliverable:**
 ```python
-from osint_system.pipelines import ExtractionPipeline
+from osint_system.agents.sifters import FactClassificationAgent
+from osint_system.data_management.schemas import FactClassification, ImpactTier, DubiousFlag
 
-pipeline = ExtractionPipeline()
-result = await pipeline.process_investigation('my-investigation')
-# Articles from ArticleStore -> FactExtractionAgent -> FactConsolidator -> FactStore
+agent = FactClassificationAgent()
+classifications = await agent.sift({
+    'facts': facts,
+    'investigation_id': 'my-investigation'
+})
+# Returns list of FactClassification dicts with impact tier, dubious flags, priority score
 ```
