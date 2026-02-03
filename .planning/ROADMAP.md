@@ -133,16 +133,16 @@ Plans:
 - [x] 07-04: Impact assessment and full integration ✓
 
 ### Phase 8: Verification Loop
-**Goal**: Investigate and resolve dubious facts through targeted searches
+**Goal**: Investigate and resolve dubious facts through targeted searches, producing confirmed/refuted/unverifiable outcomes
 **Depends on**: Phase 7
-**Research**: Unlikely (uses existing crawler and sifter components)
+**Research**: Complete ✓
 **Plans**: 4 plans
 
 Plans:
-- [ ] 08-01: Create VerificationAgent architecture
-- [ ] 08-02: Implement targeted query generation
-- [ ] 08-03: Build evidence aggregation system
-- [ ] 08-04: Create re-classification logic
+- [ ] 08-01-PLAN.md — Verification schemas and status types (VerificationStatus, VerificationResult, EvidenceItem)
+- [ ] 08-02-PLAN.md — Species-specialized query generation (PHANTOM/FOG/ANOMALY strategies)
+- [ ] 08-03-PLAN.md — Evidence aggregation and re-classification (authority-weighted corroboration)
+- [ ] 08-04-PLAN.md — VerificationAgent with batch processing and full integration
 
 ### Phase 9: Knowledge Graph Integration
 **Goal**: Store verified facts in graph database with relationship extraction
@@ -185,6 +185,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Extended Crawler Cohort | 6/6 | Complete ✓ | 2026-02-01 |
 | 6. Fact Extraction Pipeline | 4/4 | Complete ✓ | 2026-02-03 |
 | 7. Fact Classification System | 4/4 | Complete ✓ | 2026-02-03 |
-| 8. Verification Loop | 0/4 | Not started | - |
+| 8. Verification Loop | 0/4 | Planned | - |
 | 9. Knowledge Graph Integration | 0/5 | Not started | - |
 | 10. Analysis & Reporting Engine | 0/5 | Not started | - |
