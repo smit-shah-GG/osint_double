@@ -6,8 +6,12 @@ Per Phase 7 CONTEXT.md:
 - Credibility scoring with full breakdown
 - Classifications are SEPARATE from facts (facts immutable)
 
-This plan provides the agent structure.
-Plans 02/03 implement the actual scoring and detection logic.
+Classification flow:
+1. Compute credibility score (SourceCredibilityScorer)
+2. Assess impact tier (critical vs less-critical)
+3. Detect dubious flags via Boolean logic gates
+4. Calculate priority score (Impact x Fixability)
+5. Store classification record
 """
 
 from typing import Any, Dict, List, Optional
@@ -15,6 +19,10 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from osint_system.agents.sifters.base_sifter import BaseSifter
+from osint_system.agents.sifters.credibility import (
+    EchoDetector,
+    SourceCredibilityScorer,
+)
 from osint_system.data_management.classification_store import ClassificationStore
 from osint_system.data_management.fact_store import FactStore
 from osint_system.data_management.schemas import (
@@ -82,6 +90,20 @@ class FactClassificationAgent(BaseSifter):
         if self._fact_store is None:
             self._fact_store = FactStore()
         return self._fact_store
+
+    @property
+    def credibility_scorer(self) -> SourceCredibilityScorer:
+        """Lazy initialization of credibility scorer."""
+        if not hasattr(self, "_credibility_scorer") or self._credibility_scorer is None:
+            self._credibility_scorer = SourceCredibilityScorer()
+        return self._credibility_scorer
+
+    @property
+    def echo_detector(self) -> EchoDetector:
+        """Lazy initialization of echo detector."""
+        if not hasattr(self, "_echo_detector") or self._echo_detector is None:
+            self._echo_detector = EchoDetector()
+        return self._echo_detector
 
     async def sift(self, content: dict) -> list[dict]:
         """
@@ -200,10 +222,14 @@ class FactClassificationAgent(BaseSifter):
         """
         Compute credibility score for a fact.
 
-        Per CONTEXT.md formula: Claim Score = Σ(SourceCred × Proximity × Precision)
-        Plus logarithmic echo dampening.
+        Per CONTEXT.md formula: Claim Score = Sum(SourceCred x Proximity x Precision)
+        Plus logarithmic echo dampening for multiple sources.
 
-        Plan 02 implements the full algorithm. This is the shell.
+        LIMITATION (Phase 7): This plan scores primary source only.
+        Full multi-source echo dampening requires Phase 8 variant provenance
+        enrichment. The EchoDetector infrastructure is in place, but
+        variant provenances are not yet fetched/wired. See Phase 8 for
+        complete implementation with variant provenance fetching.
 
         Args:
             fact: ExtractedFact dict
@@ -211,13 +237,30 @@ class FactClassificationAgent(BaseSifter):
         Returns:
             (credibility_score, breakdown) tuple
         """
-        # Placeholder: Plan 02 implements actual algorithm
-        quality = fact.get("quality", {})
-        claim_clarity = quality.get("claim_clarity", 0.5) if quality else 0.5
+        # Single source scoring (Phase 7 limitation)
+        # Phase 8 will add variant provenance fetching for full echo dampening
+        score, breakdown = self.credibility_scorer.compute_credibility(fact)
 
-        # Basic fallback: use claim_clarity as proxy for credibility
-        # This will be replaced with full algorithm in Plan 02
-        return claim_clarity, None
+        # Note: EchoDetector is available for Phase 8 integration:
+        # When Phase 8 provides variant provenances, the flow becomes:
+        #
+        # variants = fact.get("variants", [])
+        # if variants:
+        #     variant_provenances = [
+        #         await fact_store.get_provenance(v) for v in variants
+        #     ]
+        #     all_provenances = [fact.get("provenance")] + variant_provenances
+        #     score, breakdown, source_scores = (
+        #         self.credibility_scorer.score_multiple_sources(fact, variant_provenances)
+        #     )
+        #     echo_score = self.echo_detector.analyze_sources(
+        #         all_provenances,
+        #         [s.combined for s in source_scores]
+        #     )
+        #     breakdown = self.echo_detector.update_breakdown(breakdown, echo_score)
+        #     score = echo_score.total_score
+
+        return score, breakdown
 
     def _assess_impact(
         self,
