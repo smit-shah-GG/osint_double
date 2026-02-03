@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 7 of 10 (Fact Classification System)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-03 - Completed 07-01-PLAN.md
+Last activity: 2026-02-03 - Completed 07-02-PLAN.md
 
-Progress: █████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 68%
+Progress: ██████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░ 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27
-- Average duration: 23.7 min
-- Total execution time: 643 min
+- Total plans completed: 28
+- Average duration: 23.4 min
+- Total execution time: 654 min
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: ███████████████████████�
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
-| 07-fact-classification-system | 1/3 | 8 min | 8 min |
+| 07-fact-classification-system | 2/3 | 19 min | 9.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-01 (12 min), 06-02 (5 min), 06-03 (7 min), 06-04 (4 min), 07-01 (8 min)
+- Last 5 plans: 06-02 (5 min), 06-03 (7 min), 06-04 (4 min), 07-01 (8 min), 07-02 (11 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -125,6 +125,10 @@ Recent decisions affecting current work:
 - Impact tier and dubious flags are orthogonal dimensions
 - Taxonomy of doubt: phantom/fog/anomaly/noise species
 - NOISE-only facts excluded from individual verification queue (batch analysis)
+- Proximity decay factor: 0.7^hop for exponential decay
+- Echo dampening alpha: 0.2 for logarithmic dampening (botnet-proof)
+- Precision weights: entity 30%, temporal 30%, quote 20%, document 20%
+- Single-source scoring in Phase 7 (full multi-source in Phase 8)
 
 ### Deferred Issues
 
@@ -137,14 +141,14 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 07-01-PLAN.md (Classification Schema and Agent Structure)
-Resume file: .planning/phases/07-fact-classification-system/07-02-PLAN.md
+Stopped at: Completed 07-02-PLAN.md (Credibility Scoring System)
+Resume file: .planning/phases/07-fact-classification-system/07-03-PLAN.md
 
 ## Phase 7 Progress
 
 Classification system in progress:
 - **07-01:** Complete - FactClassification schema, ClassificationStore, FactClassificationAgent shell
-- **07-02:** Pending - Credibility scoring formula implementation
+- **07-02:** Complete - Credibility scoring formula implementation
 - **07-03:** Pending - Dubious flag detection and impact assessment
 
 Key patterns established:
@@ -158,15 +162,23 @@ Key patterns established:
 - Priority calculation: Impact x Fixability
 - NOISE-only excluded from verification queue (batch analysis only)
 
-**Phase 7 Plan 01 deliverable:**
-```python
-from osint_system.agents.sifters import FactClassificationAgent
-from osint_system.data_management.schemas import FactClassification, ImpactTier, DubiousFlag
+**Phase 7 Plan 02 adds credibility scoring:**
+- SourceCredibilityScorer: SourceCred x Proximity x Precision
+- 25 pre-configured source baselines (Reuters 0.9, RT 0.4, Twitter 0.3)
+- Domain pattern matching (.gov 0.85, .edu 0.85, .org 0.7)
+- Proximity decay: 0.7^hop (hop=2 -> 0.49)
+- EchoDetector: alpha * log10(1 + sum(echoes)) for botnet-proof dampening
 
-agent = FactClassificationAgent()
-classifications = await agent.sift({
-    'facts': facts,
-    'investigation_id': 'my-investigation'
-})
-# Returns list of FactClassification dicts with impact tier, dubious flags, priority score
+**Phase 7 Plan 02 deliverable:**
+```python
+from osint_system.agents.sifters.credibility import SourceCredibilityScorer, EchoDetector
+
+scorer = SourceCredibilityScorer()
+score, breakdown = scorer.compute_credibility(fact)
+# score: 0.0-1.0 combined credibility
+# breakdown: CredibilityBreakdown with s_root, proximity_scores, precision_scores
+
+detector = EchoDetector()
+echo_score = detector.analyze_sources(provenances, scores)
+# echo_score: EchoScore with root_score, echo_bonus, total_score, circular_warning
 ```
