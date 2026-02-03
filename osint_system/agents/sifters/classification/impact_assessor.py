@@ -186,7 +186,7 @@ class ImpactAssessor:
         Returns:
             (significance_score, reasoning) tuple
         """
-        entities = fact.get("entities", [])
+        entities = fact.get("entities") or []  # Handle None
         claim = fact.get("claim", {})
         claim_text = claim.get("text", "") if isinstance(claim, dict) else ""
 
