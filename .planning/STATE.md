@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 7 - Fact Classification System
+**Current focus:** Phase 7 Complete - Ready for Phase 8 Verification Loop
 
 ## Current Position
 
-Phase: 7 of 10 (Fact Classification System)
-Plan: 3 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-03 - Completed 07-03-PLAN.md
+Phase: 7 of 10 (Fact Classification System) - COMPLETE
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-02-03 - Completed 07-04-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░ 72.5%
+Progress: ██████████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░ 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29
-- Average duration: 22.7 min
-- Total execution time: 659 min
+- Total plans completed: 30
+- Average duration: 22.3 min
+- Total execution time: 669 min
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: ███████████████████████�
 | 04-news-crawler | 5/5 | 65 min | 13 min |
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
-| 07-fact-classification-system | 3/3 | 24 min | 8 min |
+| 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-03 (7 min), 06-04 (4 min), 07-01 (8 min), 07-02 (11 min), 07-03 (5 min)
+- Last 5 plans: 06-04 (4 min), 07-01 (8 min), 07-02 (11 min), 07-03 (5 min), 07-04 (10 min)
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -133,6 +133,11 @@ Recent decisions affecting current work:
 - Fixability priority: FOG (0.9) > ANOMALY (0.8) > PHANTOM (0.6) > NOISE (0.1)
 - Pure NOISE facts get 0.0 fixability (batch analysis only)
 - 14 compiled regex patterns for vague attribution detection
+- Impact threshold 0.6 combined score for CRITICAL tier
+- Entity (50%) + Event (50%) weights for impact calculation
+- Context boost capped at 0.2 maximum
+- Four contradiction types: negation, numeric, temporal, attribution
+- Two-pass classification for anomaly detection (detect contradictions first)
 
 ### Deferred Issues
 
@@ -145,15 +150,16 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 07-03-PLAN.md (Dubious Detection System)
-Resume file: .planning/phases/07-fact-classification-system/07-04-PLAN.md
+Stopped at: Completed 07-04-PLAN.md (Full Integration)
+Resume file: None - Phase 7 complete, ready for Phase 8
 
-## Phase 7 Progress
+## Phase 7 Complete
 
-Classification system complete (3/3 plans):
+Classification system complete (4/4 plans):
 - **07-01:** Complete - FactClassification schema, ClassificationStore, FactClassificationAgent shell
 - **07-02:** Complete - Credibility scoring formula implementation
 - **07-03:** Complete - Dubious detection with Boolean logic gates
+- **07-04:** Complete - Impact assessment, anomaly detection, full integration
 
 Key patterns established:
 - Classifications separate from facts (linked by fact_id)
@@ -165,23 +171,41 @@ Key patterns established:
 - ClassificationStore with flag-type and tier indexes for Phase 8
 - Priority calculation: Impact x Fixability
 - NOISE-only excluded from verification queue (batch analysis only)
+- ImpactAssessor for entity significance + event type scoring
+- AnomalyDetector for contradiction detection (input to ANOMALY flag)
+- Two-pass classification flow for full anomaly detection
 
-**Phase 7 Plan 03 adds dubious detection:**
-- DubiousDetector with Boolean logic gates (not weighted formulas)
-- PHANTOM: hop_count > 2 AND primary_source IS NULL
-- FOG: claim_clarity < 0.5 OR vague attribution patterns
-- ANOMALY: contradiction_count > 0 (external input)
-- NOISE: source_credibility < 0.3 (batch only)
-- Fixability scoring for Phase 8 queue prioritization
-- 14 vague attribution regex patterns for FOG detection
-
-**Phase 7 Plan 03 deliverable:**
+**Phase 7 Full Pipeline:**
 ```python
-from osint_system.agents.sifters.classification import DubiousDetector, DubiousResult
+from osint_system.agents.sifters import FactClassificationAgent
+from osint_system.data_management.schemas import ImpactTier, DubiousFlag
 
-detector = DubiousDetector()
-result = detector.detect(fact_dict, credibility_score=0.5, contradictions=[])
-# result.flags: List[DubiousFlag] - which species triggered
-# result.reasoning: List[ClassificationReasoning] - why each triggered
-# result.fixability_score: 0.0-1.0 - verification priority
+agent = FactClassificationAgent()
+
+# Single fact classification (no anomaly detection)
+result = await agent.sift({'facts': facts, 'investigation_id': 'inv-1'})
+
+# Investigation-wide classification (with anomaly detection)
+result = await agent.classify_investigation('inv-1', facts)
+
+# Get priority queue for Phase 8
+queue = await agent.get_priority_queue('inv-1')
+
+# Get facts by dubious flag type
+phantoms = await agent.classification_store.get_by_flag('inv-1', DubiousFlag.PHANTOM)
 ```
+
+## Phase 8 Readiness
+
+Phase 8 (Verification Loop) can now build on:
+
+1. **Priority Queue:** `ClassificationStore.get_priority_queue()` - ordered by priority_score
+2. **Flag Indexes:** `ClassificationStore.get_by_flag()` - specialized subroutines per species
+3. **Contradiction Details:** `DubiousResult.reasoning` includes contradicting_fact_ids
+4. **Fixability Scores:** Route verification effort to fixable claims first
+
+Phase 8 subroutines per dubious species:
+- PHANTOM: Trace back to find root source
+- FOG: Find harder/clearer version of claim
+- ANOMALY: Arbitrate with temporal/location context
+- NOISE: Batch analysis for pattern detection (disinfo signatures)
