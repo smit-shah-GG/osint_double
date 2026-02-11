@@ -17,7 +17,9 @@ Schemas in this module define the data structures consumed by:
 - Reclassifier (status transitions and confidence updates)
 """
 
+from osint_system.agents.sifters.verification.evidence_aggregator import EvidenceAggregator
 from osint_system.agents.sifters.verification.query_generator import QueryGenerator
+from osint_system.agents.sifters.verification.reclassifier import Reclassifier
 from osint_system.agents.sifters.verification.schemas import (
     VerificationStatus,
     EvidenceItem,
@@ -27,7 +29,9 @@ from osint_system.agents.sifters.verification.schemas import (
 )
 
 __all__ = [
+    "EvidenceAggregator",
     "QueryGenerator",
+    "Reclassifier",
     "VerificationStatus",
     "EvidenceItem",
     "VerificationQuery",
