@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Extended Crawler Cohort** - Social media and document crawlers ✓ Complete
 - [x] **Phase 6: Fact Extraction Pipeline** - LLM-powered fact identification and extraction ✓ Complete
 - [x] **Phase 7: Fact Classification System** - Three-tier categorization and credibility assessment ✓ Complete
-- [ ] **Phase 8: Verification Loop** - Dubious fact investigation and re-classification
+- [x] **Phase 8: Verification Loop** - Dubious fact investigation and re-classification ✓ Complete
 - [ ] **Phase 9: Knowledge Graph Integration** - Graph database and relationship mapping
 - [ ] **Phase 10: Analysis & Reporting Engine** - Synthesis, multiple outputs, dashboard
 
@@ -136,13 +136,15 @@ Plans:
 **Goal**: Investigate and resolve dubious facts through targeted searches, producing confirmed/refuted/unverifiable outcomes
 **Depends on**: Phase 7
 **Research**: Complete ✓
-**Plans**: 4 plans
+**Plans**: 4 plans (4/4 complete)
+**Status**: Complete ✓
+**Completed**: 2026-02-11
 
 Plans:
-- [ ] 08-01-PLAN.md — Verification schemas and status types (VerificationStatus, VerificationResult, EvidenceItem)
-- [ ] 08-02-PLAN.md — Species-specialized query generation (PHANTOM/FOG/ANOMALY strategies)
-- [ ] 08-03-PLAN.md — Evidence aggregation and re-classification (authority-weighted corroboration)
-- [ ] 08-04-PLAN.md — VerificationAgent with batch processing and full integration
+- [x] 08-01: Verification schemas and status types (VerificationStatus, VerificationResult, EvidenceItem) ✓
+- [x] 08-02: Species-specialized query generation (PHANTOM/FOG/ANOMALY strategies) ✓
+- [x] 08-03: Evidence aggregation and re-classification (authority-weighted corroboration) ✓
+- [x] 08-04: VerificationAgent with batch processing and full integration ✓
 
 ### Phase 9: Knowledge Graph Integration
 **Goal**: Store verified facts in graph database with relationship extraction
@@ -185,6 +187,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Extended Crawler Cohort | 6/6 | Complete ✓ | 2026-02-01 |
 | 6. Fact Extraction Pipeline | 4/4 | Complete ✓ | 2026-02-03 |
 | 7. Fact Classification System | 4/4 | Complete ✓ | 2026-02-03 |
-| 8. Verification Loop | 0/4 | Planned | - |
+| 8. Verification Loop | 4/4 | Complete ✓ | 2026-02-11 |
 | 9. Knowledge Graph Integration | 0/5 | Not started | - |
 | 10. Analysis & Reporting Engine | 0/5 | Not started | - |

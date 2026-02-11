@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 7 Complete - Ready for Phase 8 Verification Loop
+**Current focus:** Phase 8 Complete - Ready for Phase 9 Knowledge Graph Integration
 
 ## Current Position
 
-Phase: 7 of 10 (Fact Classification System) - COMPLETE
+Phase: 8 of 10 (Verification Loop) - COMPLETE
 Plan: 4 of 4 in current phase
 Status: Phase complete
-Last activity: 2026-02-03 - Completed 07-04-PLAN.md
+Last activity: 2026-02-11 - Completed 08-04-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░ 75%
+Progress: ████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░ 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30
-- Average duration: 22.3 min
-- Total execution time: 669 min
+- Total plans completed: 34
+- Average duration: 21.4 min
+- Total execution time: 729 min
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Progress: ███████████████████████�
 | 05-extended-crawler-cohort | 6/6 | 42 min | 7 min |
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
+| 08-verification-loop | 4/4 | 60 min | 15 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-04 (4 min), 07-01 (8 min), 07-02 (11 min), 07-03 (5 min), 07-04 (10 min)
-- Trend: Fast execution
+- Last 5 plans: 07-04 (10 min), 08-01 (12 min), 08-02 (15 min), 08-03 (15 min), 08-04 (18 min)
+- Trend: Moderate complexity (cross-component integration)
 
 ## Accumulated Context
 
@@ -138,6 +139,18 @@ Recent decisions affecting current work:
 - Context boost capped at 0.2 maximum
 - Four contradiction types: negation, numeric, temporal, attribution
 - Two-pass classification for anomaly detection (detect contradictions first)
+- 3-query limit per fact: entity_focused → exact_phrase → broader_context
+- Short-circuit on CONFIRMED/REFUTED (don't waste remaining queries)
+- Authority thresholds: HIGH_AUTHORITY >= 0.85, REFUTATION >= 0.7
+- Confidence boosts: wire_service +0.3, official +0.25, news +0.2, social +0.1
+- 2+ independent sources required for lower-authority confirmation
+- Origin dubious flags saved to history before clearing on reclassification
+- ANOMALY resolution: temporal contradictions → SUPERSEDED, factual → REFUTED
+- CRITICAL tier facts skip reclassification until human review completed
+- Serper API for verification searches with graceful mock mode (empty when no key)
+- VerificationStore: investigation-scoped with human review tracking
+- Automatic verification via VerificationPipeline event handler
+- asyncio.Semaphore for batch concurrency control (configurable batch_size)
 
 ### Deferred Issues
 
@@ -149,63 +162,54 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-03
-Stopped at: Completed 07-04-PLAN.md (Full Integration)
-Resume file: None - Phase 7 complete, ready for Phase 8
+Last session: 2026-02-11
+Stopped at: Completed 08-04-PLAN.md (VerificationAgent Integration)
+Resume file: None - Phase 8 complete, ready for Phase 9
 
-## Phase 7 Complete
+## Phase 8 Complete
 
-Classification system complete (4/4 plans):
-- **07-01:** Complete - FactClassification schema, ClassificationStore, FactClassificationAgent shell
-- **07-02:** Complete - Credibility scoring formula implementation
-- **07-03:** Complete - Dubious detection with Boolean logic gates
-- **07-04:** Complete - Impact assessment, anomaly detection, full integration
+Verification loop complete (4/4 plans):
+- **08-01:** Complete - VerificationStatus, VerificationResult, EvidenceItem, verification_schema in data layer
+- **08-02:** Complete - QueryGenerator with PHANTOM/FOG/ANOMALY species strategies
+- **08-03:** Complete - EvidenceAggregator (authority-weighted), Reclassifier (origin preservation)
+- **08-04:** Complete - VerificationAgent, SearchExecutor, VerificationStore, VerificationPipeline
 
 Key patterns established:
-- Classifications separate from facts (linked by fact_id)
-- ImpactTier (critical/less_critical) and DubiousFlag (phantom/fog/anomaly/noise)
-- Orthogonal dimensions: impact tier and dubious status independent
-- CredibilityBreakdown for full score decomposition
-- ClassificationReasoning explains WHY each flag was triggered
-- ClassificationHistory for full audit trail
-- ClassificationStore with flag-type and tier indexes for Phase 8
-- Priority calculation: Impact x Fixability
-- NOISE-only excluded from verification queue (batch analysis only)
-- ImpactAssessor for entity significance + event type scoring
-- AnomalyDetector for contradiction detection (input to ANOMALY flag)
-- Two-pass classification flow for full anomaly detection
+- Species-specialized query generation (PHANTOM→source-chain, FOG→clarity-seeking, ANOMALY→compound)
+- 3-query limit per fact with short-circuit on CONFIRMED/REFUTED
+- Authority-weighted corroboration: wire (0.9, +0.3), news (0.5-0.7, +0.2), official (+0.25), social (0.3, +0.1)
+- Origin flag preservation in history before clearing on reclassification
+- Context-dependent ANOMALY resolution: temporal→SUPERSEDED, factual→REFUTED
+- CRITICAL tier facts require human review (reclassification deferred)
+- Automatic pipeline: classification.complete event triggers verification
+- Investigation-scoped VerificationStore with review tracking
+- Batch processing with asyncio.Semaphore for controlled concurrency
 
-**Phase 7 Full Pipeline:**
+**Phase 8 Full Pipeline:**
 ```python
-from osint_system.agents.sifters import FactClassificationAgent
-from osint_system.data_management.schemas import ImpactTier, DubiousFlag
+from osint_system.agents.sifters.verification import VerificationAgent
+from osint_system.pipeline import VerificationPipeline
 
-agent = FactClassificationAgent()
+# Standalone verification
+agent = VerificationAgent(
+    classification_store=cs, fact_store=fs, verification_store=vs
+)
+stats = await agent.verify_investigation("inv-123")
 
-# Single fact classification (no anomaly detection)
-result = await agent.sift({'facts': facts, 'investigation_id': 'inv-1'})
+# Automatic pipeline (triggered by classification.complete)
+pipeline = VerificationPipeline()
+stats = await pipeline.on_classification_complete("inv-123", summary)
 
-# Investigation-wide classification (with anomaly detection)
-result = await agent.classify_investigation('inv-1', facts)
-
-# Get priority queue for Phase 8
-queue = await agent.get_priority_queue('inv-1')
-
-# Get facts by dubious flag type
-phantoms = await agent.classification_store.get_by_flag('inv-1', DubiousFlag.PHANTOM)
+# Register with investigation pipeline for event-based flow
+pipeline.register_with_pipeline(investigation_pipeline)
 ```
 
-## Phase 8 Readiness
+## Phase 9 Readiness
 
-Phase 8 (Verification Loop) can now build on:
+Phase 9 (Knowledge Graph Integration) can now build on:
 
-1. **Priority Queue:** `ClassificationStore.get_priority_queue()` - ordered by priority_score
-2. **Flag Indexes:** `ClassificationStore.get_by_flag()` - specialized subroutines per species
-3. **Contradiction Details:** `DubiousResult.reasoning` includes contradicting_fact_ids
-4. **Fixability Scores:** Route verification effort to fixable claims first
-
-Phase 8 subroutines per dubious species:
-- PHANTOM: Trace back to find root source
-- FOG: Find harder/clearer version of claim
-- ANOMALY: Arbitrate with temporal/location context
-- NOISE: Batch analysis for pattern detection (disinfo signatures)
+1. **Verified Facts:** VerificationStore provides confirmed/refuted/unverifiable outcomes
+2. **Evidence Chains:** Supporting/refuting evidence with authority scores and source provenance
+3. **Confidence Scores:** Original + boost = final confidence per verified fact
+4. **Review System:** Human review tracking for CRITICAL tier facts
+5. **Full Pipeline:** classification → verification → ready for graph insertion
