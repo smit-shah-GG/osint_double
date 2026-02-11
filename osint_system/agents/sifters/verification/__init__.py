@@ -27,11 +27,15 @@ from osint_system.agents.sifters.verification.schemas import (
     EvidenceEvaluation,
     VerificationResult,
 )
+from osint_system.agents.sifters.verification.search_executor import SearchExecutor
+from osint_system.agents.sifters.verification.verification_agent import VerificationAgent
 
 __all__ = [
     "EvidenceAggregator",
     "QueryGenerator",
     "Reclassifier",
+    "SearchExecutor",
+    "VerificationAgent",
     "VerificationStatus",
     "EvidenceItem",
     "VerificationQuery",
