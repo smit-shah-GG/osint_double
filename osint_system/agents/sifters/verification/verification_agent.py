@@ -167,7 +167,6 @@ class VerificationAgent:
 
         self._logger.info(
             "verification_complete",
-            investigation_id=investigation_id,
             **stats,
         )
 
