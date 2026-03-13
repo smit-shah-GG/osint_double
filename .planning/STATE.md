@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 9 Knowledge Graph Integration - In Progress
+**Current focus:** Phase 9 Knowledge Graph Integration - Complete
 
 ## Current Position
 
 Phase: 9 of 10 (Knowledge Graph Integration)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-03-13 - Completed 09-04-PLAN.md
+Plan: 5 of 5 in current phase
+Status: Phase complete
+Last activity: 2026-03-13 - Completed 09-05-PLAN.md
 
-Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████ 100%
+Progress: ██████████████████████████████████████████████████████████████████████████████████████████████████████ 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 38
-- Average duration: 19.8 min
-- Total execution time: 752 min
+- Total plans completed: 39
+- Average duration: 19.6 min
+- Total execution time: 762 min
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: ███████████████████████�
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
-| 09-knowledge-graph-integration | 4/5 | 23 min | 5.8 min |
+| 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
 
 **Recent Trend:**
-- Last 5 plans: 08-04 (18 min), 09-01 (4 min), 09-02 (6 min), 09-03 (7 min), 09-04 (6 min)
-- Trend: Graph layer building efficiently; one plan remaining in Phase 9 (09-05)
+- Last 5 plans: 09-01 (4 min), 09-02 (6 min), 09-03 (7 min), 09-04 (6 min), 09-05 (10 min)
+- Trend: Phase 9 complete; graph layer built efficiently across 5 plans
 
 ## Accumulated Context
 
@@ -140,13 +140,13 @@ Recent decisions affecting current work:
 - Context boost capped at 0.2 maximum
 - Four contradiction types: negation, numeric, temporal, attribution
 - Two-pass classification for anomaly detection (detect contradictions first)
-- 3-query limit per fact: entity_focused → exact_phrase → broader_context
+- 3-query limit per fact: entity_focused -> exact_phrase -> broader_context
 - Short-circuit on CONFIRMED/REFUTED (don't waste remaining queries)
 - Authority thresholds: HIGH_AUTHORITY >= 0.85, REFUTATION >= 0.7
 - Confidence boosts: wire_service +0.3, official +0.25, news +0.2, social +0.1
 - 2+ independent sources required for lower-authority confirmation
 - Origin dubious flags saved to history before clearing on reclassification
-- ANOMALY resolution: temporal contradictions → SUPERSEDED, factual → REFUTED
+- ANOMALY resolution: temporal contradictions -> SUPERSEDED, factual -> REFUTED
 - CRITICAL tier facts skip reclassification until human review completed
 - Serper API for verification searches with graceful mock mode (empty when no key)
 - VerificationStore: investigation-scoped with human review tracking
@@ -170,6 +170,10 @@ Recent decisions affecting current work:
 - Same-entity shortest path returns single-node result with path_length=0
 - Edge exclusion on investigation-filtered entity network results (no dangling refs)
 - Timeline fact deduplication via seen_facts set
+- Default ingestion filters to CONFIRMED + SUPERSEDED only (separate method for all statuses)
+- Bulk ingestion uses single FactMapper for cross-fact entity resolution
+- GraphPipeline lazy-inits all components from config (matches VerificationPipeline pattern)
+- GraphEdge weight and cross_investigation stored as edge properties through batch merge
 
 ### Deferred Issues
 
@@ -182,53 +186,55 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 09-04-PLAN.md (Query Pattern Validation & Hardening)
-Resume file: None - ready for 09-05
+Stopped at: Completed 09-05-PLAN.md (GraphIngestor & GraphPipeline Integration)
+Resume file: None - Phase 9 complete, ready for Phase 10
 
-## Phase 8 Complete
+## Phase 9 Complete
 
-Verification loop complete (4/4 plans):
-- **08-01:** Complete - VerificationStatus, VerificationResult, EvidenceItem, verification_schema in data layer
-- **08-02:** Complete - QueryGenerator with PHANTOM/FOG/ANOMALY species strategies
-- **08-03:** Complete - EvidenceAggregator (authority-weighted), Reclassifier (origin preservation)
-- **08-04:** Complete - VerificationAgent, SearchExecutor, VerificationStore, VerificationPipeline
+Knowledge Graph Integration complete (5/5 plans):
+- **09-01:** Complete - GraphAdapter Protocol, GraphNode/GraphEdge/QueryResult, EdgeType (13 types), GraphConfig
+- **09-02:** Complete - NetworkXAdapter + Neo4jAdapter with batch UNWIND, context managers
+- **09-03:** Complete - FactMapper (entity resolution, alias tracking), RelationshipExtractor (rule+LLM hybrid)
+- **09-04:** Complete - Query pattern hardening (entity network, corroboration, timeline, shortest path)
+- **09-05:** Complete - GraphIngestor (event-driven), GraphPipeline (standalone+event), 21 integration tests
 
 Key patterns established:
-- Species-specialized query generation (PHANTOM→source-chain, FOG→clarity-seeking, ANOMALY→compound)
-- 3-query limit per fact with short-circuit on CONFIRMED/REFUTED
-- Authority-weighted corroboration: wire (0.9, +0.3), news (0.5-0.7, +0.2), official (+0.25), social (0.3, +0.1)
-- Origin flag preservation in history before clearing on reclassification
-- Context-dependent ANOMALY resolution: temporal→SUPERSEDED, factual→REFUTED
-- CRITICAL tier facts require human review (reclassification deferred)
-- Automatic pipeline: classification.complete event triggers verification
-- Investigation-scoped VerificationStore with review tracking
-- Batch processing with asyncio.Semaphore for controlled concurrency
+- Event-driven ingestion: MessageBus verification.complete -> GraphIngestor -> adapter
+- Full pipeline chain: classification.complete -> verification -> verification.complete -> graph
+- Four query patterns: entity_network, corroboration_clusters, timeline, shortest_path
+- Entity resolution via exact canonical match within FactMapper session
+- Dual adapter: NetworkXAdapter for tests/CI, Neo4jAdapter for production
+- Batch merge with label-grouped nodes for adapter efficiency
+- Status-filtered ingestion (CONFIRMED+SUPERSEDED default, all-statuses option)
 
-**Phase 8 Full Pipeline:**
+**Phase 9 Full Pipeline:**
 ```python
-from osint_system.agents.sifters.verification import VerificationAgent
-from osint_system.pipeline import VerificationPipeline
+from osint_system.pipeline import GraphPipeline, VerificationPipeline
 
-# Standalone verification
-agent = VerificationAgent(
-    classification_store=cs, fact_store=fs, verification_store=vs
-)
-stats = await agent.verify_investigation("inv-123")
+# Standalone graph ingestion
+pipeline = GraphPipeline()
+stats = await pipeline.run_ingestion("inv-123")
 
-# Automatic pipeline (triggered by classification.complete)
-pipeline = VerificationPipeline()
-stats = await pipeline.on_classification_complete("inv-123", summary)
+# Query the graph
+result = await pipeline.query("entity_network", entity_id="inv-123:Putin")
+result = await pipeline.query("corroboration_clusters", investigation_id="inv-123")
+result = await pipeline.query("timeline", entity_id="inv-123:Putin")
+result = await pipeline.query("shortest_path", from_entity_id="inv-123:A", to_entity_id="inv-123:B")
 
-# Register with investigation pipeline for event-based flow
-pipeline.register_with_pipeline(investigation_pipeline)
+# Event-driven: register both pipelines
+verification = VerificationPipeline()
+graph = GraphPipeline()
+verification.register_with_pipeline(investigation_pipeline)
+graph.register_with_pipeline(investigation_pipeline)
+# Flow: classification.complete -> verification -> verification.complete -> graph
 ```
 
-## Phase 9 Readiness
+## Phase 10 Readiness
 
-Phase 9 (Knowledge Graph Integration) can now build on:
+Phase 10 (Analysis & Reporting) can now build on:
 
-1. **Verified Facts:** VerificationStore provides confirmed/refuted/unverifiable outcomes
-2. **Evidence Chains:** Supporting/refuting evidence with authority scores and source provenance
-3. **Confidence Scores:** Original + boost = final confidence per verified fact
-4. **Review System:** Human review tracking for CRITICAL tier facts
-5. **Full Pipeline:** classification → verification → ready for graph insertion
+1. **Knowledge Graph:** Full entity-fact-source graph with verified relationships
+2. **Four Query Patterns:** entity_network, corroboration_clusters, timeline, shortest_path
+3. **Pipeline Integration:** GraphPipeline.query() for convenient access
+4. **Verification Data:** Confidence scores, evidence trails, human review status
+5. **Full Pipeline:** classification -> verification -> graph -> ready for analysis
