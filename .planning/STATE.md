@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 8 Complete - Ready for Phase 9 Knowledge Graph Integration
+**Current focus:** Phase 9 Knowledge Graph Integration - In Progress
 
 ## Current Position
 
-Phase: 8 of 10 (Verification Loop) - COMPLETE
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-02-11 - Completed 08-04-PLAN.md
+Phase: 9 of 10 (Knowledge Graph Integration)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-03-13 - Completed 09-01-PLAN.md
 
-Progress: ████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░ 80%
+Progress: ████████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░░░ 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34
-- Average duration: 21.4 min
-- Total execution time: 729 min
+- Total plans completed: 35
+- Average duration: 20.9 min
+- Total execution time: 733 min
 
 **By Phase:**
 
@@ -35,10 +35,11 @@ Progress: ███████████████████████�
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
+| 09-knowledge-graph-integration | 1/4 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 07-04 (10 min), 08-01 (12 min), 08-02 (15 min), 08-03 (15 min), 08-04 (18 min)
-- Trend: Moderate complexity (cross-component integration)
+- Last 5 plans: 08-01 (12 min), 08-02 (15 min), 08-03 (15 min), 08-04 (18 min), 09-01 (4 min)
+- Trend: Type-foundation plans are fast; implementation plans will be heavier
 
 ## Accumulated Context
 
@@ -151,6 +152,11 @@ Recent decisions affecting current work:
 - VerificationStore: investigation-scoped with human review tracking
 - Automatic verification via VerificationPipeline event handler
 - asyncio.Semaphore for batch concurrency control (configurable batch_size)
+- 13 edge types: structural (MENTIONS/SOURCED_FROM/PART_OF/HAS_CLASSIFICATION), semantic (CORROBORATES/CONTRADICTS/RELATED_TO/ATTRIBUTED_TO/CAUSES), temporal (PRECEDES/SUPERSEDES), spatial (LOCATED_AT), verification (VERIFIED_BY)
+- Node ID format: {label}:{natural_key} for global uniqueness
+- Edge weight formula: base + authority*0.3 + min(0.2, 0.05*log1p(count)) - min(0.2, days/365*0.2), clamped [0,1]
+- GraphConfig uses from_env() classmethod (not BaseSettings) to avoid requiring GEMINI_API_KEY
+- LLM relationship extraction gated behind GRAPH_LLM_EXTRACTION env var (default off)
 
 ### Deferred Issues
 
@@ -162,9 +168,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Completed 08-04-PLAN.md (VerificationAgent Integration)
-Resume file: None - Phase 8 complete, ready for Phase 9
+Last session: 2026-03-13
+Stopped at: Completed 09-01-PLAN.md (Graph Layer Type Foundation)
+Resume file: None - ready for 09-02
 
 ## Phase 8 Complete
 
