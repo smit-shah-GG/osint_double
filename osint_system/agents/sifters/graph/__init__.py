@@ -21,7 +21,11 @@ Usage:
 """
 
 from osint_system.agents.sifters.graph.fact_mapper import FactMapper
+from osint_system.agents.sifters.graph.relationship_extractor import (
+    RelationshipExtractor,
+)
 
 __all__ = [
     "FactMapper",
+    "RelationshipExtractor",
 ]
