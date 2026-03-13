@@ -147,18 +147,18 @@ Plans:
 - [x] 08-04: VerificationAgent with batch processing and full integration ✓
 
 ### Phase 9: Knowledge Graph Integration
-**Goal**: Store verified facts in graph database with relationship extraction
+**Goal**: Transform verified facts, entities, and relationships into a queryable Neo4j graph with event-driven ingestion from the verification pipeline
 **Depends on**: Phase 8
-**Research**: Likely (technology selection)
+**Research**: Complete ✓
 **Research topics**: Graph database options (Neo4j, NetworkX), fact-to-graph mapping patterns, query languages
 **Plans**: 5 plans
 
 Plans:
-- [ ] 09-01: Set up graph database infrastructure
-- [ ] 09-02: Implement fact-to-graph mapping
-- [ ] 09-03: Create relationship extraction
-- [ ] 09-04: Build graph query interface
-- [ ] 09-05: Integrate with verification loop
+- [ ] 09-01-PLAN.md -- Graph Pydantic schemas, GraphAdapter Protocol, and Neo4j config
+- [ ] 09-02-PLAN.md -- Neo4j + NetworkX adapters, Cypher queries, docker-compose, adapter tests
+- [ ] 09-03-PLAN.md -- FactMapper and RelationshipExtractor (hybrid rule + LLM)
+- [ ] 09-04-PLAN.md -- Four query patterns validated with comprehensive test suite
+- [ ] 09-05-PLAN.md -- GraphIngestor, GraphPipeline, and end-to-end integration
 
 ### Phase 10: Analysis & Reporting Engine
 **Goal**: Generate intelligence products with multiple output formats and dashboard
