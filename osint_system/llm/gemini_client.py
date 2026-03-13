@@ -5,8 +5,7 @@ import random
 import functools
 from typing import Callable, Any
 
-import google.generativeai as genai
-from google.generativeai.types.generation_types import BlockedPromptException
+from google import genai
 from loguru import logger
 
 from osint_system.config.settings import settings
@@ -65,7 +64,8 @@ class GeminiClient:
     proper error handling for blocked prompts.
 
     Attributes:
-        model: Configured Gemini generative model instance
+        client: google.genai.Client instance
+        model_name: Model identifier string for API calls
     """
 
     def __init__(self):
@@ -78,14 +78,11 @@ class GeminiClient:
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY not configured in environment")
 
-        # Configure API
-        genai.configure(api_key=settings.gemini_api_key)
-
-        # Create model instance
-        self.model = genai.GenerativeModel(settings.gemini_model)
+        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.model_name = settings.gemini_model
 
         logger.info(
-            f"Gemini client initialized with model {settings.gemini_model}"
+            f"Gemini client initialized with model {self.model_name}"
         )
 
     @_exponential_backoff
@@ -101,20 +98,14 @@ class GeminiClient:
             Generated text content
 
         Raises:
-            BlockedPromptException: If prompt violates safety policies
-            Exception: For other API errors after retries exhausted
+            Exception: For API errors after retries exhausted (including safety blocks)
         """
-        try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=temperature,
-                )
-            )
-            return response.text
-        except BlockedPromptException as e:
-            logger.error(f"Prompt blocked by safety filters: {e}")
-            raise
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=[prompt],
+            config={"temperature": temperature},
+        )
+        return response.text
 
     def count_tokens(self, text: str) -> int:
         """
@@ -126,7 +117,10 @@ class GeminiClient:
         Returns:
             Total token count
         """
-        result = self.model.count_tokens(text)
+        result = self.client.models.count_tokens(
+            model=self.model_name,
+            contents=[text],
+        )
         return result.total_tokens
 
 

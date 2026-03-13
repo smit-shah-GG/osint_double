@@ -264,9 +264,8 @@ class TestPlanningOrchestration:
         objective = "Investigate the impact of recent policy changes"
 
         # Mock Gemini client to avoid API calls
-        with patch.object(orchestrator, 'gemini_client') as mock_gemini:
+        with patch.object(orchestrator, 'gemini_client') as mock_client:
             # Mock decomposition response
-            mock_model = Mock()
             mock_response = Mock()
             mock_response.text = """[
                 {
@@ -282,8 +281,7 @@ class TestPlanningOrchestration:
                     "suggested_sources": ["social_media", "news"]
                 }
             ]"""
-            mock_model.generate_content.return_value = mock_response
-            mock_gemini.GenerativeModel.return_value = mock_model
+            mock_client.models.generate_content.return_value = mock_response
 
             # Execute orchestration
             result = await orchestrator.process({"objective": objective})

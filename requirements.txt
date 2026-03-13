@@ -1,5 +1,5 @@
 # Core dependencies (already installed)
-google-generativeai==0.8.3
+google-genai>=1.0
 pydantic>=2.0
 loguru==0.7.2
 click==8.1.7

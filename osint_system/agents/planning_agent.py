@@ -102,10 +102,9 @@ class PlanningOrchestrator(BaseAgent):
             return settings.gemini_client
 
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            return genai
+            return genai.Client(api_key=settings.gemini_api_key)
         except Exception as e:
             self.logger.warning(f"Failed to initialize Gemini client: {e}")
             return None
@@ -241,8 +240,6 @@ class PlanningOrchestrator(BaseAgent):
             return self._fallback_decompose_objective(objective)
 
         try:
-            model = self.gemini_client.GenerativeModel("gemini-1.5-pro")
-
             prompt = f"""You are an expert OSINT researcher. Decompose the following investigation objective into actionable subtasks.
 
 Objective: {objective}
@@ -263,7 +260,10 @@ Example format:
 
 Respond with ONLY the JSON array, no other text."""
 
-            response = model.generate_content(prompt)
+            response = self.gemini_client.models.generate_content(
+                model="gemini-1.5-pro",
+                contents=[prompt],
+            )
             response_text = response.text.strip()
 
             # Extract JSON from response

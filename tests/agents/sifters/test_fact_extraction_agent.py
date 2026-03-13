@@ -503,14 +503,10 @@ class TestMockGeminiIntegration:
     @pytest.mark.asyncio
     async def test_extraction_with_mock_response(self, mock_gemini_response):
         """Full extraction flow with mocked Gemini."""
-        # Create mock Gemini client
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = MagicMock(text=mock_gemini_response)
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = MagicMock(text=mock_gemini_response)
 
-        mock_genai = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-
-        agent = FactExtractionAgent(gemini_client=mock_genai)
+        agent = FactExtractionAgent(gemini_client=mock_client)
 
         content = {
             "text": "Russian President Vladimir Putin visited Beijing in March 2024. " * 5,
@@ -534,13 +530,10 @@ class TestMockGeminiIntegration:
     @pytest.mark.asyncio
     async def test_denial_extraction_with_mock(self, denial_response):
         """Denial assertion extraction with mocked Gemini."""
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = MagicMock(text=denial_response)
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = MagicMock(text=denial_response)
 
-        mock_genai = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-
-        agent = FactExtractionAgent(gemini_client=mock_genai)
+        agent = FactExtractionAgent(gemini_client=mock_client)
 
         content = {
             "text": "Russia denied any involvement in the cyber attack that targeted the government. " * 5,
@@ -559,13 +552,10 @@ class TestMockGeminiIntegration:
     @pytest.mark.asyncio
     async def test_gemini_error_returns_empty(self):
         """Gemini error returns empty list, doesn't raise."""
-        mock_model = MagicMock()
-        mock_model.generate_content.side_effect = Exception("API Error")
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = Exception("API Error")
 
-        mock_genai = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-
-        agent = FactExtractionAgent(gemini_client=mock_genai)
+        agent = FactExtractionAgent(gemini_client=mock_client)
 
         content = {
             "text": "Some text that would normally be extracted. " * 5,
@@ -578,13 +568,10 @@ class TestMockGeminiIntegration:
     @pytest.mark.asyncio
     async def test_process_method_wraps_sift(self, mock_gemini_response):
         """BaseSifter.process() correctly wraps sift()."""
-        mock_model = MagicMock()
-        mock_model.generate_content.return_value = MagicMock(text=mock_gemini_response)
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = MagicMock(text=mock_gemini_response)
 
-        mock_genai = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
-
-        agent = FactExtractionAgent(gemini_client=mock_genai)
+        agent = FactExtractionAgent(gemini_client=mock_client)
 
         input_data = {
             "content": {

@@ -103,13 +103,12 @@ class FactExtractionAgent(BaseSifter):
     def _get_gemini_client(self):
         """Initialize Gemini client from settings."""
         try:
-            import google.generativeai as genai
+            from google import genai
             from osint_system.config.settings import settings
 
-            genai.configure(api_key=settings.gemini_api_key)
-            return genai
+            return genai.Client(api_key=settings.gemini_api_key)
         except ImportError:
-            self.logger.warning("google.generativeai not installed")
+            self.logger.warning("google-genai not installed")
             return None
         except Exception as e:
             self.logger.warning(f"Failed to initialize Gemini: {e}")
@@ -166,11 +165,6 @@ class FactExtractionAgent(BaseSifter):
             return []
 
         try:
-            model = self.gemini_client.GenerativeModel(
-                self.model_name,
-                system_instruction=FACT_EXTRACTION_SYSTEM_PROMPT,
-            )
-
             prompt = FACT_EXTRACTION_USER_PROMPT.format(
                 source_id=source_id,
                 source_type=source_type,
@@ -178,7 +172,11 @@ class FactExtractionAgent(BaseSifter):
                 text=text,
             )
 
-            response = model.generate_content(prompt)
+            response = self.gemini_client.models.generate_content(
+                model=self.model_name,
+                contents=[prompt],
+                config={"system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT},
+            )
             raw_json = self._extract_json_from_response(response.text)
 
             if not raw_json:
@@ -268,11 +266,6 @@ class FactExtractionAgent(BaseSifter):
             return []
 
         try:
-            model = self.gemini_client.GenerativeModel(
-                self.model_name,
-                system_instruction=FACT_EXTRACTION_SYSTEM_PROMPT,
-            )
-
             # Format previous entities for context (last 10)
             entity_summary = ", ".join(
                 [
@@ -290,7 +283,11 @@ class FactExtractionAgent(BaseSifter):
                 text=text,
             )
 
-            response = model.generate_content(prompt)
+            response = self.gemini_client.models.generate_content(
+                model=self.model_name,
+                contents=[prompt],
+                config={"system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT},
+            )
             raw_json = self._extract_json_from_response(response.text)
 
             if not raw_json:
