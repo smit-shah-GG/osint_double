@@ -31,3 +31,7 @@ beautifulsoup4>=4.12.0  # HTML parsing helper
 
 # Web scraper dependencies
 playwright>=1.40.0  # Browser automation for JS-heavy sites
+
+# Graph database dependencies
+neo4j>=6.1.0  # Official Neo4j async Python driver
+networkx>=3.0  # In-memory graph for tests/CI (no Docker dependency)
