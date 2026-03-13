@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 9 of 10 (Knowledge Graph Integration)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-13 - Completed 09-02-PLAN.md
+Last activity: 2026-03-13 - Completed 09-03-PLAN.md
 
-Progress: █████████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░░ 88%
+Progress: ██████████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░ 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 36
-- Average duration: 20.5 min
-- Total execution time: 739 min
+- Total plans completed: 37
+- Average duration: 20.2 min
+- Total execution time: 746 min
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: ███████████████████████�
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
-| 09-knowledge-graph-integration | 2/4 | 10 min | 5 min |
+| 09-knowledge-graph-integration | 3/4 | 17 min | 5.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 08-02 (15 min), 08-03 (15 min), 08-04 (18 min), 09-01 (4 min), 09-02 (6 min)
-- Trend: Graph adapter implementations tracking efficiently
+- Last 5 plans: 08-03 (15 min), 08-04 (18 min), 09-01 (4 min), 09-02 (6 min), 09-03 (7 min)
+- Trend: Graph layer building efficiently; one plan remaining in Phase 9
 
 ## Accumulated Context
 
@@ -162,6 +162,10 @@ Recent decisions affecting current work:
 - NetworkX stub node creation on merge_relationship (matches Neo4j MERGE behavior)
 - Undirected graph view for shortest path finding (bidirectional entity traversal)
 - Batch relationship grouping by (from_label, to_label, rel_type) for efficient UNWIND
+- Entity resolution uses exact canonical name match (resolution_confidence=1.0)
+- Cross-investigation detection via dict interface (decoupled from adapter)
+- LLM-inferred edges use lower base weight (0.4) vs rule-based (0.5+)
+- Source nodes deduplicated by source_id within mapper session
 
 ### Deferred Issues
 
@@ -174,8 +178,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 09-02-PLAN.md (Graph Adapter Implementations)
-Resume file: None - ready for 09-03
+Stopped at: Completed 09-03-PLAN.md (Fact-to-Graph Mapping & Relationship Extraction)
+Resume file: None - ready for 09-04
 
 ## Phase 8 Complete
 
