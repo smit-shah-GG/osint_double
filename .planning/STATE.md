@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-10)
 ## Current Position
 
 Phase: 9 of 10 (Knowledge Graph Integration)
-Plan: 3 of 4 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-03-13 - Completed 09-03-PLAN.md
+Last activity: 2026-03-13 - Completed 09-04-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████████████████████████████░░░░░░░░ 90%
+Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████ 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 37
-- Average duration: 20.2 min
-- Total execution time: 746 min
+- Total plans completed: 38
+- Average duration: 19.8 min
+- Total execution time: 752 min
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: ███████████████████████�
 | 06-fact-extraction-pipeline | 4/4 | 28 min | 7 min |
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
-| 09-knowledge-graph-integration | 3/4 | 17 min | 5.7 min |
+| 09-knowledge-graph-integration | 4/5 | 23 min | 5.8 min |
 
 **Recent Trend:**
-- Last 5 plans: 08-03 (15 min), 08-04 (18 min), 09-01 (4 min), 09-02 (6 min), 09-03 (7 min)
-- Trend: Graph layer building efficiently; one plan remaining in Phase 9
+- Last 5 plans: 08-04 (18 min), 09-01 (4 min), 09-02 (6 min), 09-03 (7 min), 09-04 (6 min)
+- Trend: Graph layer building efficiently; one plan remaining in Phase 9 (09-05)
 
 ## Accumulated Context
 
@@ -166,6 +166,10 @@ Recent decisions affecting current work:
 - Cross-investigation detection via dict interface (decoupled from adapter)
 - LLM-inferred edges use lower base weight (0.4) vs rule-based (0.5+)
 - Source nodes deduplicated by source_id within mapper session
+- Union-find for corroboration cluster counting (no subgraph construction needed)
+- Same-entity shortest path returns single-node result with path_length=0
+- Edge exclusion on investigation-filtered entity network results (no dangling refs)
+- Timeline fact deduplication via seen_facts set
 
 ### Deferred Issues
 
@@ -178,8 +182,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 09-03-PLAN.md (Fact-to-Graph Mapping & Relationship Extraction)
-Resume file: None - ready for 09-04
+Stopped at: Completed 09-04-PLAN.md (Query Pattern Validation & Hardening)
+Resume file: None - ready for 09-05
 
 ## Phase 8 Complete
 
