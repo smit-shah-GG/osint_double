@@ -412,6 +412,7 @@ class Neo4jAdapter:
         nodes: list[GraphNode] = []
         edges: list[GraphEdge] = []
         seen_nodes: set[str] = set()
+        node_pairs: list[tuple[str, str]] = []
 
         for record in records:
             f1_node = _neo4j_node_to_graph_node(record["f1"])
@@ -425,12 +426,19 @@ class Neo4jAdapter:
                 nodes.append(f2_node)
                 seen_nodes.add(f2_node.id)
             edges.append(edge)
+            node_pairs.append((f1_node.id, f2_node.id))
+
+        # Count clusters using union-find
+        cluster_count = _count_clusters(node_pairs) if edges else 0
 
         return QueryResult(
             nodes=nodes,
             edges=edges,
             query_type="corroboration_clusters",
-            metadata={"investigation_id": investigation_id},
+            metadata={
+                "investigation_id": investigation_id,
+                "cluster_count": cluster_count,
+            },
         )
 
     async def query_timeline(
@@ -454,6 +462,7 @@ class Neo4jAdapter:
             metadata={
                 "entity_id": entity_id,
                 "investigation_id": investigation_id,
+                "fact_count": len(nodes),
             },
         )
 
@@ -472,6 +481,7 @@ class Neo4jAdapter:
         )
 
         nodes, edges = _extract_paths(records)
+        path_length = max(0, len(nodes) - 1) if nodes else 0
         return QueryResult(
             nodes=nodes,
             edges=edges,
@@ -480,6 +490,7 @@ class Neo4jAdapter:
                 "from_entity_id": from_entity_id,
                 "to_entity_id": to_entity_id,
                 "investigation_id": investigation_id,
+                "path_length": path_length,
             },
         )
 
@@ -503,6 +514,30 @@ class Neo4jAdapter:
 # ---------------------------------------------------------------------------
 # Helpers: Convert neo4j driver objects to Pydantic graph models
 # ---------------------------------------------------------------------------
+
+
+def _count_clusters(pairs: list[tuple[str, str]]) -> int:
+    """Count connected components from edge pairs using union-find."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        while parent.get(x, x) != x:
+            parent[x] = parent.get(parent[x], parent[x])
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for u, v in pairs:
+        parent.setdefault(u, u)
+        parent.setdefault(v, v)
+        union(u, v)
+
+    roots = {find(n) for n in parent}
+    return len(roots)
 
 
 def _neo4j_node_to_graph_node(neo4j_node) -> GraphNode:  # noqa: ANN001

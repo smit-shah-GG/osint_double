@@ -229,22 +229,27 @@ class NetworkXAdapter:
     ) -> QueryResult:
         """Find connected nodes within N hops of an entity.
 
-        Uses BFS traversal bounded by max_hops. Filters by investigation_id
-        if provided.
+        Uses BFS traversal bounded by max_hops. Traverses bidirectionally
+        (both successors and predecessors) since entity networks ignore edge
+        direction. Filters by investigation_id if provided -- nodes whose
+        investigation_id is set but doesn't match are excluded.
         """
         node_key = f"Entity:{entity_id}"
         if node_key not in self._graph:
             return QueryResult(
                 nodes=[], edges=[], query_type="entity_network",
-                metadata={"entity_id": entity_id, "max_hops": max_hops},
+                metadata={
+                    "entity_id": entity_id,
+                    "max_hops": max_hops,
+                    "investigation_id": investigation_id,
+                },
             )
 
         max_hops = min(max(1, max_hops), 10)
 
-        # BFS to find all nodes within max_hops
+        # BFS to find all nodes within max_hops (bidirectional traversal)
         visited: set[str] = set()
-        result_nodes: list[GraphNode] = []
-        result_edges: list[GraphEdge] = []
+        collected_edges: list[GraphEdge] = []
         frontier = {node_key}
 
         for _hop in range(max_hops):
@@ -255,29 +260,34 @@ class NetworkXAdapter:
                 visited.add(current)
 
                 # Outgoing edges
-                if current in self._graph:
-                    for neighbor in self._graph.successors(current):
-                        if neighbor not in visited:
-                            next_frontier.add(neighbor)
-                        # Add edges
-                        for _ek, data in self._graph[current][neighbor].items():
-                            edge = self._data_to_graph_edge(current, neighbor, data)
-                            result_edges.append(edge)
+                for neighbor in self._graph.successors(current):
+                    if neighbor not in visited:
+                        next_frontier.add(neighbor)
+                    for _ek, data in self._graph[current][neighbor].items():
+                        collected_edges.append(
+                            self._data_to_graph_edge(current, neighbor, data)
+                        )
 
-                # Incoming edges (undirected traversal for entity networks)
+                # Incoming edges (bidirectional traversal for entity networks)
                 for predecessor in self._graph.predecessors(current):
                     if predecessor not in visited:
                         next_frontier.add(predecessor)
                     for _ek, data in self._graph[predecessor][current].items():
-                        edge = self._data_to_graph_edge(predecessor, current, data)
-                        result_edges.append(edge)
+                        collected_edges.append(
+                            self._data_to_graph_edge(predecessor, current, data)
+                        )
 
             frontier = next_frontier
 
-        # Add remaining frontier nodes to visited
+        # Final frontier nodes are reachable but not yet expanded -- include
+        # them in the result set (they are within max_hops distance)
         visited.update(frontier)
 
-        # Convert visited node keys to GraphNodes, filtering by investigation
+        # Convert visited node keys to GraphNodes, filtering by investigation.
+        # Nodes whose investigation_id is set but doesn't match are excluded.
+        # Nodes with no investigation_id (e.g. stub nodes) pass through.
+        result_nodes: list[GraphNode] = []
+        included_node_keys: set[str] = set()
         for nk in visited:
             node = self._node_key_to_graph_node(nk)
             if investigation_id is not None:
@@ -285,11 +295,16 @@ class NetworkXAdapter:
                 if node_inv is not None and node_inv != investigation_id:
                     continue
             result_nodes.append(node)
+            included_node_keys.add(nk)
 
-        # Deduplicate edges
+        # Deduplicate edges and exclude edges referencing filtered-out nodes
         seen_edges: set[str] = set()
         unique_edges: list[GraphEdge] = []
-        for edge in result_edges:
+        for edge in collected_edges:
+            if edge.source_id not in included_node_keys:
+                continue
+            if edge.target_id not in included_node_keys:
+                continue
             ek = f"{edge.source_id}->{edge.target_id}:{edge.edge_type.value}"
             if ek not in seen_edges:
                 unique_edges.append(edge)
@@ -309,11 +324,23 @@ class NetworkXAdapter:
     async def query_corroboration_clusters(
         self, investigation_id: str
     ) -> QueryResult:
-        """Find corroborating/contradicting fact pairs in an investigation."""
+        """Find corroborating/contradicting fact clusters in an investigation.
+
+        Scans all edges of type CORROBORATES or CONTRADICTS where at least the
+        source node belongs to the given investigation. Collects the connected
+        fact nodes and their corroboration/contradiction edges.
+
+        Metadata includes ``cluster_count`` -- the number of distinct connected
+        components in the corroboration subgraph (useful for understanding how
+        many independent agreement/disagreement groups exist).
+        """
         nodes: list[GraphNode] = []
         edges: list[GraphEdge] = []
         seen_nodes: set[str] = set()
         corroboration_types = {EdgeType.CORROBORATES.value, EdgeType.CONTRADICTS.value}
+
+        # Collect node pairs for cluster counting via union-find
+        cluster_node_pairs: list[tuple[str, str]] = []
 
         for u, v, data in self._graph.edges(data=True):
             rel_type = data.get("rel_type", "")
@@ -322,14 +349,14 @@ class NetworkXAdapter:
 
             # Check that at least the source fact belongs to this investigation
             u_props = self._node_index.get(u, {})
-            if u_props.get("investigation_id") != investigation_id:
-                # Also check via graph node attrs
-                u_attrs = self._graph.nodes.get(u, {})
-                if u_attrs.get("investigation_id") != investigation_id:
-                    continue
+            u_attrs = self._graph.nodes.get(u, {})
+            u_inv = u_props.get("investigation_id") or u_attrs.get("investigation_id")
+            if u_inv != investigation_id:
+                continue
 
             edge = self._data_to_graph_edge(u, v, data)
             edges.append(edge)
+            cluster_node_pairs.append((u, v))
 
             for nk in (u, v):
                 if nk not in seen_nodes:
@@ -339,12 +366,42 @@ class NetworkXAdapter:
         # Sort edges by weight descending
         edges.sort(key=lambda e: e.weight, reverse=True)
 
+        # Count clusters using union-find on collected node pairs
+        cluster_count = self._count_clusters(cluster_node_pairs) if edges else 0
+
         return QueryResult(
             nodes=nodes,
             edges=edges,
             query_type="corroboration_clusters",
-            metadata={"investigation_id": investigation_id},
+            metadata={
+                "investigation_id": investigation_id,
+                "cluster_count": cluster_count,
+            },
         )
+
+    @staticmethod
+    def _count_clusters(pairs: list[tuple[str, str]]) -> int:
+        """Count connected components from edge pairs using union-find."""
+        parent: dict[str, str] = {}
+
+        def find(x: str) -> str:
+            while parent.get(x, x) != x:
+                parent[x] = parent.get(parent[x], parent[x])
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for u, v in pairs:
+            parent.setdefault(u, u)
+            parent.setdefault(v, v)
+            union(u, v)
+
+        roots = {find(n) for n in parent}
+        return len(roots)
 
     async def query_timeline(
         self,
@@ -353,20 +410,32 @@ class NetworkXAdapter:
     ) -> QueryResult:
         """Get facts mentioning an entity ordered by temporal value.
 
-        Finds Fact nodes connected to the entity via MENTIONS edges that
-        have a temporal_value property.
+        Finds Fact nodes connected to the entity via incoming MENTIONS edges
+        (Fact -MENTIONS-> Entity) that have a non-None ``temporal_value``
+        property. Results are sorted ascending by temporal_value (ISO-format
+        string sort).
+
+        Metadata includes ``fact_count`` for the number of temporal facts found.
         """
         entity_key = f"Entity:{entity_id}"
         if entity_key not in self._graph:
             return QueryResult(
                 nodes=[], edges=[], query_type="timeline",
-                metadata={"entity_id": entity_id},
+                metadata={
+                    "entity_id": entity_id,
+                    "investigation_id": investigation_id,
+                    "fact_count": 0,
+                },
             )
 
         fact_nodes: list[GraphNode] = []
+        seen_facts: set[str] = set()
 
         # Find incoming MENTIONS edges (Fact -> Entity means Fact MENTIONS Entity)
         for predecessor in self._graph.predecessors(entity_key):
+            if predecessor in seen_facts:
+                continue
+
             for _ek, data in self._graph[predecessor][entity_key].items():
                 if data.get("rel_type") != EdgeType.MENTIONS.value:
                     continue
@@ -385,8 +454,10 @@ class NetworkXAdapter:
                     continue
 
                 fact_nodes.append(self._node_key_to_graph_node(predecessor))
+                seen_facts.add(predecessor)
+                break  # One MENTIONS edge per fact-entity pair is sufficient
 
-        # Sort by temporal_value ascending
+        # Sort by temporal_value ascending (ISO-format strings sort correctly)
         fact_nodes.sort(
             key=lambda n: n.properties.get("temporal_value", "")
         )
@@ -398,6 +469,7 @@ class NetworkXAdapter:
             metadata={
                 "entity_id": entity_id,
                 "investigation_id": investigation_id,
+                "fact_count": len(fact_nodes),
             },
         )
 
@@ -410,17 +482,40 @@ class NetworkXAdapter:
         """Find shortest path between two entities.
 
         Uses NetworkX's shortest_path algorithm on the undirected view
-        of the graph (entity networks are typically traversed bidirectionally).
+        of the graph (entity networks are traversed bidirectionally).
+
+        Handles same-entity case (from == to) by returning a single-node
+        result with path_length=0.
+
+        Metadata includes ``path_length`` (number of edges in the path).
         """
         from_key = f"Entity:{from_entity_id}"
         to_key = f"Entity:{to_entity_id}"
 
+        empty_metadata = {
+            "from_entity_id": from_entity_id,
+            "to_entity_id": to_entity_id,
+            "investigation_id": investigation_id,
+            "path_length": 0,
+        }
+
         if from_key not in self._graph or to_key not in self._graph:
             return QueryResult(
                 nodes=[], edges=[], query_type="shortest_path",
+                metadata=empty_metadata,
+            )
+
+        # Same entity: return single-node path
+        if from_key == to_key:
+            return QueryResult(
+                nodes=[self._node_key_to_graph_node(from_key)],
+                edges=[],
+                query_type="shortest_path",
                 metadata={
                     "from_entity_id": from_entity_id,
                     "to_entity_id": to_entity_id,
+                    "investigation_id": investigation_id,
+                    "path_length": 0,
                 },
             )
 
@@ -431,10 +526,7 @@ class NetworkXAdapter:
         except nx.NetworkXNoPath:
             return QueryResult(
                 nodes=[], edges=[], query_type="shortest_path",
-                metadata={
-                    "from_entity_id": from_entity_id,
-                    "to_entity_id": to_entity_id,
-                },
+                metadata=empty_metadata,
             )
 
         # Build result
@@ -443,7 +535,8 @@ class NetworkXAdapter:
 
         for i in range(len(path_nodes) - 1):
             u, v = path_nodes[i], path_nodes[i + 1]
-            # Check both directions for edges
+            # Check both directions for edges (undirected path may traverse
+            # against the directed edge)
             if self._graph.has_edge(u, v):
                 for _ek, data in self._graph[u][v].items():
                     result_edges.append(self._data_to_graph_edge(u, v, data))
@@ -461,6 +554,7 @@ class NetworkXAdapter:
                 "from_entity_id": from_entity_id,
                 "to_entity_id": to_entity_id,
                 "investigation_id": investigation_id,
+                "path_length": len(path_nodes) - 1,
             },
         )
 
@@ -499,10 +593,15 @@ class NetworkXAdapter:
     def _data_to_graph_edge(
         from_id: str, to_id: str, data: dict
     ) -> GraphEdge:
-        """Convert NetworkX edge data to a GraphEdge Pydantic model."""
+        """Convert NetworkX edge data to a GraphEdge Pydantic model.
+
+        Extracts ``rel_type``, ``weight``, and ``cross_investigation`` from the
+        raw edge data dict before passing remaining properties to GraphEdge.
+        """
         props = dict(data)
         rel_type_str = props.pop("rel_type", EdgeType.RELATED_TO.value)
         weight = props.pop("weight", 0.5)
+        cross_inv = props.pop("cross_investigation", False)
 
         try:
             edge_type = EdgeType(rel_type_str)
@@ -515,5 +614,5 @@ class NetworkXAdapter:
             edge_type=edge_type,
             weight=weight,
             properties=props,
-            cross_investigation=props.pop("cross_investigation", False),
+            cross_investigation=cross_inv,
         )
