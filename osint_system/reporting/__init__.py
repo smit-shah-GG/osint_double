@@ -13,8 +13,11 @@ Key exports:
 
 from osint_system.reporting.pdf_renderer import PDFRenderer
 from osint_system.reporting.report_generator import ReportGenerator
+from osint_system.reporting.report_store import ReportRecord, ReportStore
 
 __all__ = [
     "PDFRenderer",
     "ReportGenerator",
+    "ReportRecord",
+    "ReportStore",
 ]
