@@ -438,6 +438,22 @@ class ClassificationStore:
 
             return verified
 
+    async def get_all_classifications(
+        self,
+        investigation_id: str,
+    ) -> List[Dict[str, Any]]:
+        """Get all classifications for an investigation.
+
+        Args:
+            investigation_id: Investigation identifier.
+
+        Returns:
+            List of all classification dicts for the investigation.
+        """
+        async with self._lock:
+            inv = self._storage.get(investigation_id, {})
+            return list(inv.get("classifications", {}).values())
+
     async def get_stats(self, investigation_id: str) -> Dict[str, Any]:
         """
         Get statistics for an investigation's classifications.
