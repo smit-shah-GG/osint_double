@@ -1,0 +1,36 @@
+## Appendix: Evidence Trail
+
+This appendix catalogs the individual facts that inform the analysis above.
+Each entry links back to its source material and records the extraction
+confidence, verification status, and final assessed confidence.
+
+All facts are listed in order of appearance within the investigation.
+Confidence scores reflect the assessed reliability of each individual claim
+based on source authority, corroboration, and extraction quality.
+
+### Legend
+
+| Field | Description |
+|-------|-------------|
+| Extraction Confidence | LLM confidence when extracting this fact from source text |
+| Verification Status | Outcome of the verification loop (CONFIRMED, REFUTED, PENDING, UNVERIFIABLE) |
+| Final Confidence | Combined credibility score after classification and verification |
+
+---
+
+{% for fact in facts %}
+### {{ fact.fact_id }}
+
+- **Claim:** {{ fact.claim_text }}
+- **Extraction Confidence:** {{ fact.extraction_confidence | default("N/A") }}
+- **Verification Status:** {{ fact.verification_status | default("N/A") }}
+- **Final Confidence:** {{ fact.final_confidence | default("N/A") }}
+{% if fact.source_url %}- **Source:** {{ fact.source_url }}{% endif %}
+{% if fact.provenance %}- **Provenance:** {{ fact.provenance }}{% endif %}
+{% if fact.entities %}- **Entities:** {{ fact.entities }}{% endif %}
+
+{% endfor %}
+
+---
+
+*Total facts cataloged: {{ facts | length }}*

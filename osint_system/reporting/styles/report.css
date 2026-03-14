@@ -1,0 +1,206 @@
+/* Intelligence Report Stylesheet
+ *
+ * Professional styling for IC-style intelligence reports rendered to PDF
+ * via WeasyPrint. Optimized for readability and print output.
+ */
+
+/* Page layout */
+@page {
+    size: A4;
+    margin: 2.5cm 2cm;
+
+    @top-center {
+        content: "INTELLIGENCE REPORT";
+        font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: #666666;
+        border-bottom: 0.5pt solid #cccccc;
+        padding-bottom: 4pt;
+    }
+
+    @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: #666666;
+        border-top: 0.5pt solid #cccccc;
+        padding-top: 4pt;
+    }
+}
+
+/* Base typography */
+body {
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Headings: sans-serif for contrast */
+h1, h2, h3, h4, h5, h6 {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #0a2540;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    page-break-after: avoid;
+}
+
+h1 {
+    font-size: 20pt;
+    border-bottom: 2pt solid #0a2540;
+    padding-bottom: 6pt;
+    margin-top: 0;
+}
+
+h2 {
+    font-size: 16pt;
+    border-bottom: 1pt solid #cccccc;
+    padding-bottom: 4pt;
+}
+
+h3 {
+    font-size: 13pt;
+    color: #1a3a5c;
+}
+
+/* Horizontal rules between sections */
+hr {
+    border: none;
+    border-top: 1pt solid #dddddd;
+    margin: 1.5em 0;
+}
+
+/* Paragraphs */
+p {
+    margin: 0.5em 0;
+    text-align: justify;
+    orphans: 3;
+    widows: 3;
+}
+
+/* Bold emphasis for field labels */
+strong {
+    color: #0a2540;
+}
+
+/* Italic emphasis for annotations */
+em {
+    color: #555555;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+
+thead th {
+    background-color: #0a2540;
+    color: #ffffff;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-weight: 600;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 2pt solid #0a2540;
+}
+
+tbody td {
+    padding: 6px 12px;
+    border-bottom: 0.5pt solid #dddddd;
+    vertical-align: top;
+}
+
+/* Alternating row colors */
+tbody tr:nth-child(even) {
+    background-color: #f5f7fa;
+}
+
+tbody tr:hover {
+    background-color: #e8ecf1;
+}
+
+/* Lists */
+ul, ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+li {
+    margin: 0.3em 0;
+}
+
+/* Page break rules: keep findings together */
+h3 {
+    page-break-inside: avoid;
+}
+
+h3 + p,
+h3 + ul,
+h3 + ol {
+    page-break-before: avoid;
+}
+
+/* Classification banner */
+p:first-of-type {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 9pt;
+}
+
+/* Confidence level color coding via content markers */
+/* Applied via class when HTML is generated programmatically */
+.confidence-high {
+    color: #137333;
+    font-weight: 600;
+}
+
+.confidence-moderate {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.confidence-low {
+    color: #c41e3a;
+    font-weight: 600;
+}
+
+/* Code blocks (for fact IDs, evidence references) */
+code {
+    font-family: "Fira Code", "Consolas", "Monaco", monospace;
+    font-size: 9pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+/* Blockquotes for analyst notes */
+blockquote {
+    border-left: 3pt solid #0a2540;
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    background-color: #f8f9fa;
+    font-style: italic;
+    color: #333333;
+}
+
+/* Print-specific adjustments */
+@media print {
+    body {
+        max-width: none;
+    }
+
+    a {
+        text-decoration: none;
+        color: #1a1a1a;
+    }
+
+    a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 8pt;
+        color: #666666;
+    }
+}

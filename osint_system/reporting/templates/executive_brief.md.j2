@@ -1,0 +1,15 @@
+## Executive Summary
+
+{{ executive_summary }}
+
+**Key Statistics:**
+
+| Metric | Value |
+|--------|-------|
+| Total Facts Analyzed | {{ snapshot.fact_count }} |
+| Confirmed | {{ snapshot.confirmed_count }} |
+| Refuted | {{ snapshot.refuted_count }} |
+| Unverifiable | {{ snapshot.unverifiable_count }} |
+| Sources Consulted | {{ source_inventory | length }} |
+| Key Judgments | {{ key_judgments | length }} |
+| Overall Confidence | {{ overall_confidence.level | capitalize }} ({{ "%.0f" | format(overall_confidence.numeric * 100) }}%) |

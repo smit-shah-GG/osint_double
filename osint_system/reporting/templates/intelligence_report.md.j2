@@ -1,0 +1,110 @@
+# Intelligence Report: {{ investigation_id }}
+
+**Generated:** {{ generated_at }}
+**Version:** {{ version }}
+**Classification:** UNCLASSIFIED // FOR OFFICIAL USE ONLY
+
+---
+
+{% include "executive_brief.md.j2" %}
+
+---
+
+## Key Findings
+
+{% for judgment in key_judgments %}
+### Finding {{ loop.index }}: {{ judgment.judgment }}
+
+**Confidence:** {{ judgment.confidence.level | capitalize }} ({{ "%.0f" | format(judgment.confidence.numeric * 100) }}%)
+
+{{ judgment.reasoning }}
+
+*Supporting evidence: {% for fid in judgment.supporting_fact_ids %}{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %}*
+
+{% endfor %}
+
+---
+
+## Alternative Analyses
+
+{% if alternative_hypotheses %}
+{% for alt in alternative_hypotheses %}
+### Hypothesis {{ loop.index }}: {{ alt.hypothesis }}
+
+**Likelihood:** {{ alt.likelihood | capitalize }}
+
+**Supporting Evidence:**
+{% for evidence in alt.supporting_evidence %}
+- {{ evidence }}
+{% endfor %}
+
+**Weaknesses:**
+{% for weakness in alt.weaknesses %}
+- {{ weakness }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+*No alternative hypotheses generated for this assessment.*
+{% endif %}
+
+---
+
+## Contradictions & Unresolved Questions
+
+{% if contradictions %}
+{% for c in contradictions %}
+- **{{ c.description }}** (Status: {{ c.resolution_status }}){% if c.resolution_notes %} -- {{ c.resolution_notes }}{% endif %}
+  Facts: {% for fid in c.fact_ids %}{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endfor %}
+{% else %}
+*No unresolved contradictions identified.*
+{% endif %}
+
+---
+
+## Implications & Forecasts
+
+### Strategic Implications
+{% for imp in implications %}
+{{ loop.index }}. {{ imp }}
+{% endfor %}
+
+### Forecasts
+{% for fc in forecasts %}
+{{ loop.index }}. {{ fc }}
+{% endfor %}
+
+---
+
+## Confidence Assessment
+
+**Overall Confidence:** {{ overall_confidence.level | capitalize }} ({{ "%.0f" | format(overall_confidence.numeric * 100) }}%)
+
+{{ overall_confidence.reasoning }}
+
+**Source Assessment:** {{ source_assessment }}
+
+---
+
+## Source Inventory
+
+| Source | Type | Authority | Facts |
+|--------|------|-----------|-------|
+{% for src in source_inventory %}
+| {{ src.source_domain }} | {{ src.source_type }} | {{ "%.2f" | format(src.authority_score) }} | {{ src.fact_count }} |
+{% endfor %}
+
+---
+
+## Timeline Summary
+
+| Date | Event | Confidence |
+|------|-------|------------|
+{% for entry in timeline_entries %}
+| {{ entry.timestamp }} | {{ entry.event }} | {{ entry.confidence.level }} |
+{% endfor %}
+
+---
+
+{% include "evidence_appendix.md.j2" %}
