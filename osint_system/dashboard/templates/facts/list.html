@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Facts: {{ investigation_id }} - OSINT Dashboard{% endblock %}
+{% block content %}
+<h1>Facts: {{ investigation_id }}</h1>
+
+<div class="filter-controls">
+    <label for="tier-filter">Tier:</label>
+    <select id="tier-filter" name="tier"
+            hx-get="/facts/{{ investigation_id }}"
+            hx-target=".content"
+            hx-include="[name='status']"
+            hx-push-url="true">
+        <option value="all" {% if current_tier == 'all' %}selected{% endif %}>All</option>
+        <option value="critical" {% if current_tier == 'critical' %}selected{% endif %}>Critical</option>
+        <option value="less_critical" {% if current_tier == 'less_critical' %}selected{% endif %}>Less Critical</option>
+    </select>
+
+    <label for="status-filter">Status:</label>
+    <select id="status-filter" name="status"
+            hx-get="/facts/{{ investigation_id }}"
+            hx-target=".content"
+            hx-include="[name='tier']"
+            hx-push-url="true">
+        <option value="all" {% if current_status == 'all' %}selected{% endif %}>All</option>
+        <option value="confirmed" {% if current_status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+        <option value="refuted" {% if current_status == 'refuted' %}selected{% endif %}>Refuted</option>
+        <option value="dubious" {% if current_status == 'dubious' %}selected{% endif %}>Dubious</option>
+    </select>
+</div>
+
+<table class="data-table">
+<thead>
+<tr>
+    <th>Fact ID</th>
+    <th>Claim</th>
+    <th>Impact Tier</th>
+    <th>Verification Status</th>
+    <th>Confidence</th>
+    <th>Source</th>
+</tr>
+</thead>
+<tbody>
+{% for fact in facts %}
+<tr class="fact-row" hx-get="/api/investigation/{{ investigation_id }}/facts" hx-target="#fact-detail-{{ loop.index }}" hx-swap="innerHTML">
+    <td class="mono">{{ fact.fact_id }}</td>
+    <td>{{ fact.claim }}</td>
+    <td class="tier-{{ fact.impact_tier }}">{{ fact.impact_tier }}</td>
+    <td class="badge status-{{ fact.verification_status }}">{{ fact.verification_status }}</td>
+    <td>{{ fact.confidence if fact.confidence is not none else 'N/A' }}</td>
+    <td class="mono">{{ fact.source }}</td>
+</tr>
+<tr id="fact-detail-{{ loop.index }}" class="fact-detail-row"></tr>
+{% else %}
+<tr><td colspan="6">No facts match the selected filters.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="/facts/{{ investigation_id }}?tier={{ current_tier }}&status={{ current_status }}&page={{ page - 1 }}">Previous</a>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }} ({{ total_facts }} facts)</span>
+    {% if page < total_pages %}
+    <a href="/facts/{{ investigation_id }}?tier={{ current_tier }}&status={{ current_status }}&page={{ page + 1 }}">Next</a>
+    {% endif %}
+</div>
+{% endblock %}

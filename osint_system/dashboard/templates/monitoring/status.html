@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Monitoring - OSINT Dashboard{% endblock %}
+{% block content %}
+<h1>Pipeline Monitoring</h1>
+
+<div class="stats-overview">
+    <div class="stat-card">
+        <h3>Investigations</h3>
+        <span class="stat-value">{{ total_investigations }}</span>
+    </div>
+    <div class="stat-card">
+        <h3>Total Facts</h3>
+        <span class="stat-value">{{ total_facts }}</span>
+    </div>
+    <div class="stat-card">
+        <h3>Classifications</h3>
+        <span class="stat-value">{{ total_classifications }}</span>
+    </div>
+    <div class="stat-card">
+        <h3>Verifications</h3>
+        <span class="stat-value">{{ total_verification_records }}</span>
+    </div>
+    <div class="stat-card">
+        <h3>Confirmed</h3>
+        <span class="stat-value">{{ total_verified }}</span>
+    </div>
+    <div class="stat-card">
+        <h3>Pending Review</h3>
+        <span class="stat-value">{{ total_pending_review }}</span>
+    </div>
+</div>
+
+<h2>Per-Investigation Status</h2>
+<div id="investigation-status-table" hx-trigger="every 10s" hx-get="/monitoring/status" hx-select="#investigation-status-table" hx-swap="outerHTML">
+<table class="data-table">
+<thead>
+<tr>
+    <th>Investigation</th>
+    <th>Facts</th>
+    <th>Verified</th>
+    <th>Pending</th>
+    <th>Total Verifications</th>
+    <th>Report</th>
+</tr>
+</thead>
+<tbody>
+{% for inv in per_investigation %}
+<tr hx-get="/api/investigation/{{ inv.investigation_id }}/stats" hx-trigger="every 10s" hx-swap="none">
+    <td><a href="/investigation/{{ inv.investigation_id }}">{{ inv.investigation_id }}</a></td>
+    <td>{{ inv.fact_count }}</td>
+    <td>{{ inv.verified_count }}</td>
+    <td>{{ inv.pending_count }}</td>
+    <td>{{ inv.total_verifications }}</td>
+    <td class="badge {% if inv.report_status == 'available' %}status-confirmed{% else %}status-pending{% endif %}">
+        {{ inv.report_status }}
+    </td>
+</tr>
+{% else %}
+<tr><td colspan="6">No investigations tracked.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}

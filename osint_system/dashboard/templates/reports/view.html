@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Report: {{ investigation_id }} - OSINT Dashboard{% endblock %}
+{% block content %}
+<h1>Report: {{ investigation_id }}</h1>
+
+{% if has_report %}
+<div class="report-metadata">
+    <span>Version: {{ report.version }}</span>
+    <span>Generated: {{ report.generated_at }}</span>
+    <span class="mono">Hash: {{ report.content_hash[:12] }}...</span>
+</div>
+
+{% if version_count > 1 %}
+<div class="version-selector">
+    <label for="version-select">Version:</label>
+    <select id="version-select">
+        {% for v in versions %}
+        <option value="{{ v.version }}" {% if v.version == report.version %}selected{% endif %}>
+            v{{ v.version }} ({{ v.generated_at }})
+        </option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+
+<div class="report-content">
+    {{ report_html | safe }}
+</div>
+
+<form method="post" action="/reports/{{ investigation_id }}/generate">
+    <button type="submit" class="btn btn-primary"
+            hx-post="/reports/{{ investigation_id }}/generate"
+            hx-swap="none">
+        Regenerate Report
+    </button>
+</form>
+{% else %}
+<div class="no-report">
+    <p>No report generated for this investigation.</p>
+    <form method="post" action="/reports/{{ investigation_id }}/generate">
+        <button type="submit" class="btn btn-primary"
+                hx-post="/reports/{{ investigation_id }}/generate"
+                hx-swap="none">
+            Generate Report
+        </button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

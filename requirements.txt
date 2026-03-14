@@ -43,3 +43,4 @@ WeasyPrint>=68.1  # HTML/CSS -> PDF rendering
 Jinja2>=3.1.6  # Template engine for reports and dashboard
 fastapi>=0.115.0  # Async web framework for dashboard
 uvicorn>=0.30.0  # ASGI server for dashboard
+python-multipart>=0.0.9  # Form data parsing for FastAPI POST routes

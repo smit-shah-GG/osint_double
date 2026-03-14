@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OSINT Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <nav class="main-nav">
+        <div class="nav-brand">OSINT Intelligence System</div>
+        <ul class="nav-links">
+            <li><a href="/">Investigations</a></li>
+            <li><a href="/monitoring/status">Monitoring</a></li>
+        </ul>
+    </nav>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="main-footer">
+        <span>OSINT Multi-Agent System v0.1.0</span>
+    </footer>
+</body>
+</html>

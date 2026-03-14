@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ investigation_id }} - OSINT Dashboard{% endblock %}
+{% block content %}
+<h1>Investigation: {{ investigation_id }}</h1>
+
+<div class="stats-bar">
+    <span class="stat">Total Facts: {{ total_facts }}</span>
+    <span class="stat">Critical: {{ class_stats.get('critical_count', 0) }}</span>
+    <span class="stat">Dubious: {{ class_stats.get('dubious_count', 0) }}</span>
+    <span class="stat">Verified: {{ class_stats.get('verified_count', 0) }}</span>
+    <span class="stat">Verifications: {{ ver_stats.get('total', 0) }}</span>
+</div>
+
+<div class="detail-nav">
+    <a href="/facts/{{ investigation_id }}" hx-get="/facts/{{ investigation_id }}" hx-target=".content" hx-push-url="true">Facts</a>
+    <a href="/reports/{{ investigation_id }}" hx-get="/reports/{{ investigation_id }}" hx-target=".content" hx-push-url="true">Reports</a>
+    <a href="/monitoring/status">Monitoring</a>
+</div>
+
+{% if has_report %}
+<div class="report-status">
+    <span class="badge status-confirmed">Report available (v{{ report_version }})</span>
+    <a href="/reports/{{ investigation_id }}">View Report</a>
+</div>
+{% else %}
+<div class="report-status">
+    <span class="badge status-pending">No report generated</span>
+</div>
+{% endif %}
+
+<h2>Facts ({{ total_facts }})</h2>
+<div id="fact-list" hx-get="/api/investigation/{{ investigation_id }}/facts" hx-trigger="load" hx-swap="innerHTML">
+    <p>Loading facts...</p>
+</div>
+{% endblock %}

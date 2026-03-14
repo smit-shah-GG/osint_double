@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Investigations - OSINT Dashboard{% endblock %}
+{% block content %}
+<h1>Investigations</h1>
+<div class="investigation-grid">
+{% for inv in investigations %}
+<div class="investigation-card">
+    <h2><a href="/investigation/{{ inv.investigation_id }}">{{ inv.investigation_id }}</a></h2>
+    <div class="card-stats">
+        <span class="stat">Facts: {{ inv.fact_count }}</span>
+        <span class="stat">Critical: {{ inv.critical_count }}</span>
+        <span class="stat">Dubious: {{ inv.dubious_count }}</span>
+        <span class="stat">Verified: {{ inv.verification_total }}</span>
+    </div>
+    <div class="card-meta">
+        <span class="badge {% if inv.has_report %}status-confirmed{% else %}status-pending{% endif %}">
+            Report: {% if inv.has_report %}v{{ inv.report_version }}{% else %}not generated{% endif %}
+        </span>
+        <span class="timestamp">Updated: {{ inv.updated_at }}</span>
+    </div>
+</div>
+{% else %}
+<p>No investigations found.</p>
+{% endfor %}
+</div>
+{% endblock %}
