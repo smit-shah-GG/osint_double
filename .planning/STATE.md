@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 02 complete
+**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 04 complete
 
 ## Current Position
 
 Phase: 10 of 10 (Analysis & Reporting Engine)
-Plan: 2 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-03-14 - Completed 10-02-PLAN.md
+Last activity: 2026-03-14 - Completed 10-04-PLAN.md
 
-Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████░░░ 93%
+Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████████░ 98%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 41
-- Average duration: 18.9 min
-- Total execution time: 774 min
+- Total plans completed: 43
+- Average duration: 18.3 min
+- Total execution time: 786 min
 
 **By Phase:**
 
@@ -36,11 +36,11 @@ Progress: ███████████████████████�
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
 | 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
-| 10-analysis-reporting-engine | 2/5 | 12 min | 6 min |
+| 10-analysis-reporting-engine | 4/5 | 24 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 09-04 (6 min), 09-05 (10 min), 10-01 (7 min), 10-02 (5 min)
-- Trend: Steady pace; export layer built efficiently
+- Last 5 plans: 09-05 (10 min), 10-01 (7 min), 10-02 (5 min), 10-04 (6 min)
+- Trend: Consistent sub-10min pace; reporting pipeline built efficiently
 
 ## Accumulated Context
 
@@ -186,6 +186,11 @@ Recent decisions affecting current work:
 - Timeline confidence derived from classification credibility_score thresholds
 - Source inventory enriched from verification evidence authority scores
 - token_estimate() heuristic: len(json) / 4
+- Jinja2 Environment with trim_blocks and lstrip_blocks for clean Markdown template output
+- Embedded CSS via <style> tag in PDFRenderer (avoids WeasyPrint file path issues)
+- WeasyPrint graceful fallback: render_pdf() returns None when unavailable
+- ReportStore persistence excludes markdown_content for file size efficiency
+- SHA256 content hashing for report version deduplication
 
 ### Deferred Issues
 
@@ -198,16 +203,16 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 10-02-PLAN.md (Investigation Database Export)
+Stopped at: Completed 10-04-PLAN.md (Report Generation)
 Resume file: None
 
 ## Phase 10 In Progress
 
-Analysis & Reporting Engine (2/5 plans complete):
+Analysis & Reporting Engine (4/5 plans complete):
 - **10-01:** Complete - Analysis schemas (8 Pydantic models), DataAggregator, AnalysisConfig, Phase 10 deps
 - **10-02:** Complete - InvestigationExporter (SQLite) + InvestigationArchive (JSON), 19 tests
 - **10-03:** Pending - LLM synthesis engine
-- **10-04:** Pending - Report generation (Markdown + PDF)
+- **10-04:** Complete - ReportGenerator (Jinja2), PDFRenderer (mistune + WeasyPrint), ReportStore (versioned), 32 tests
 - **10-05:** Pending - Web dashboard (FastAPI + HTMX)
 
 Key patterns established in 10-01:
@@ -259,4 +264,34 @@ archive_path = await archive.create_archive("inv-123")
 
 # Load and validate archive
 data = await InvestigationArchive.load_archive(archive_path)
+```
+
+Key patterns established in 10-04:
+- Jinja2 FileSystemLoader with built-in templates/ directory
+- _build_template_context() flattens Pydantic models to dicts for Jinja2
+- PDFRenderer embeds CSS via <style> tag (self-contained HTML)
+- SHA256 content hashing for version deduplication in ReportStore
+- asyncio.to_thread() for all blocking I/O (file writes, PDF rendering)
+
+**Phase 10-04 Entry Points:**
+```python
+from osint_system.reporting import ReportGenerator, PDFRenderer, ReportStore
+
+# Generate Markdown report from AnalysisSynthesis
+generator = ReportGenerator()
+markdown = generator.generate_markdown(synthesis)
+await generator.save_markdown(markdown, "reports/inv-123-v1.md")
+
+# Generate executive brief only
+brief = generator.generate_executive_brief(synthesis)
+
+# Render PDF (returns None if WeasyPrint unavailable)
+renderer = PDFRenderer()
+pdf_path = await renderer.render_pdf(markdown, "reports/inv-123-v1.pdf")
+
+# Track report versions
+store = ReportStore(output_dir="reports/")
+record = await store.save_report("inv-123", markdown, synthesis=synthesis)
+print(record.version, record.content_hash)
+changed = await store.has_changed("inv-123", new_markdown)
 ```
