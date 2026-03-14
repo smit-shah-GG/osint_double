@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 03 complete (10-04 also complete)
+**Current focus:** Phase 10 Analysis & Reporting Engine - COMPLETE (all 10 phases done)
 
 ## Current Position
 
 Phase: 10 of 10 (Analysis & Reporting Engine)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-03-14 - Completed 10-03-PLAN.md
+Plan: 5 of 5 in current phase
+Status: PROJECT COMPLETE
+Last activity: 2026-03-14 - Completed 10-05-PLAN.md
 
-Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████████░ 98%
+Progress: ██████████████████████████████████████████████████████████████████████████████████████████████████████████ 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 44
-- Average duration: 18.1 min
-- Total execution time: 796 min
+- Total plans completed: 45
+- Average duration: 17.9 min
+- Total execution time: 804 min
 
 **By Phase:**
 
@@ -36,11 +36,11 @@ Progress: ███████████████████████�
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
 | 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
-| 10-analysis-reporting-engine | 4/5 | 34 min | 8.5 min |
+| 10-analysis-reporting-engine | 5/5 | 42 min | 8.4 min |
 
 **Recent Trend:**
-- Last 5 plans: 09-05 (10 min), 10-01 (7 min), 10-02 (5 min), 10-03 (10 min), 10-04 (6 min)
-- Trend: Consistent pace; synthesis engine built with full test coverage
+- Last 5 plans: 10-01 (7 min), 10-02 (5 min), 10-03 (10 min), 10-04 (6 min), 10-05 (8 min)
+- Trend: Consistent sub-10-minute execution; all Phase 10 plans delivered efficiently
 
 ## Accumulated Context
 
@@ -197,137 +197,51 @@ Recent decisions affecting current work:
 - WeasyPrint graceful fallback: render_pdf() returns None when unavailable
 - ReportStore persistence excludes markdown_content for file size efficiency
 - SHA256 content hashing for report version deduplication
+- FastAPI app factory with app.state dependency injection (stores, pipeline, templates)
+- Modern TemplateResponse(request, name, context) API to avoid deprecation
+- Per-investigation verification aggregation (VerificationStore has no global stats)
+- HTMX auto-refresh via hx-trigger="every 10s" for monitoring
+- mistune.html() for Markdown->HTML in dashboard report view
 
 ### Deferred Issues
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 10-03-PLAN.md (LLM Synthesis Engine & Analysis Pipeline)
+Stopped at: Completed 10-05-PLAN.md (Web Dashboard - FastAPI + HTMX)
 Resume file: None
 
-## Phase 10 In Progress
+## Project Complete
 
-Analysis & Reporting Engine (4/5 plans complete):
+All 10 phases delivered. 45 plans executed across 804 minutes total.
+
+**Phase 10 Complete (5/5 plans):**
 - **10-01:** Complete - Analysis schemas (8 Pydantic models), DataAggregator, AnalysisConfig, Phase 10 deps
 - **10-02:** Complete - InvestigationExporter (SQLite) + InvestigationArchive (JSON), 19 tests
 - **10-03:** Complete - Synthesizer (sectioned LLM), PatternDetector, ContradictionAnalyzer, AnalysisReportingAgent, AnalysisPipeline, 38 tests
 - **10-04:** Complete - ReportGenerator (Jinja2), PDFRenderer (mistune + WeasyPrint), ReportStore (versioned), 32 tests
-- **10-05:** Pending - Web dashboard (FastAPI + HTMX)
+- **10-05:** Complete - FastAPI + Jinja2 + HTMX dashboard with 5 route modules, 23 tests
 
-Key patterns established in 10-01:
-- InvestigationSnapshot: single typed container for all investigation data
-- DataAggregator: parallel async fetch from all stores into InvestigationSnapshot
-- AnalysisConfig: from_env() with ANALYSIS_ prefix (matches GraphConfig pattern)
-- 8 analysis output models: ConfidenceAssessment, KeyJudgment, AlternativeHypothesis, ContradictionEntry, TimelineEntry, SourceInventoryEntry, InvestigationSnapshot, AnalysisSynthesis
-
-**Phase 10-01 Entry Points:**
+**Dashboard Entry Points:**
 ```python
-from osint_system.analysis import (
-    DataAggregator,
-    AnalysisSynthesis,
-    InvestigationSnapshot,
-    KeyJudgment,
-    AlternativeHypothesis,
-    ConfidenceAssessment,
+from osint_system.dashboard import create_app, run_dashboard
+
+# Create app with custom stores
+app = create_app(
+    fact_store=fs,
+    classification_store=cs,
+    verification_store=vs,
+    report_store=rs,
+    report_generator=gen,
+    analysis_pipeline=pipeline,
 )
-from osint_system.config.analysis_config import AnalysisConfig
 
-# Aggregate all investigation data
-aggregator = DataAggregator(fact_store, classification_store, verification_store, graph_pipeline)
-snapshot = await aggregator.aggregate("inv-123")
-print(snapshot.fact_count, snapshot.confirmed_count, snapshot.token_estimate())
-
-# Load config
-config = AnalysisConfig.from_env()
-print(config.synthesis_model, config.temperature)
-```
-
-Key patterns established in 10-02:
-- Store aggregation: export layer reads from multiple stores to create unified output
-- Schema versioning: archive files include schema_version for forward compatibility
-- Static load/validate: InvestigationArchive.load_archive() as static method for standalone validation
-
-**Phase 10-02 Entry Points:**
-```python
-from osint_system.database import InvestigationExporter, InvestigationArchive
-
-# SQLite export
-exporter = InvestigationExporter(fact_store, classification_store, verification_store)
-db_path = await exporter.export("inv-123")
-# -> queryable .db file with 6 normalized tables
-
-# JSON archive
-archive = InvestigationArchive(fact_store, classification_store, verification_store)
-archive_path = await archive.create_archive("inv-123")
-# -> self-contained JSON with schema versioning and statistics
-
-# Load and validate archive
-data = await InvestigationArchive.load_archive(archive_path)
-```
-
-Key patterns established in 10-03:
-- Sectioned LLM synthesis: 5 focused prompts with independent error handling
-- Pipeline chain extension via graph.ingested event (GraphPipeline -> AnalysisPipeline)
-- Optional downstream dependencies via Any typing (report_generator/report_store)
-- TYPE_CHECKING import for agent classes to avoid Settings cascade
-
-**Phase 10-03 Entry Points:**
-```python
-from osint_system.pipeline import AnalysisPipeline
-from osint_system.analysis import Synthesizer, PatternDetector, ContradictionAnalyzer
-from osint_system.agents.sifters.analysis_reporting_agent import AnalysisReportingAgent
-
-# Standalone analysis
-pipeline = AnalysisPipeline(fact_store=fs, classification_store=cs, verification_store=vs)
-synthesis = await pipeline.run_analysis("inv-123")
-print(synthesis.executive_summary, len(synthesis.key_judgments))
-
-# Event-driven (auto-triggered by GraphPipeline)
-pipeline.register_with_pipeline(investigation_pipeline)
-
-# Direct synthesis
-config = AnalysisConfig.from_env()
-synth = Synthesizer(config=config)
-result = await synth.synthesize(snapshot)
-
-# Pattern detection (no LLM)
-patterns = PatternDetector().detect_patterns(snapshot)
-contradictions = ContradictionAnalyzer().find_contradictions(snapshot)
-```
-
-Key patterns established in 10-04:
-- Jinja2 FileSystemLoader with built-in templates/ directory
-- _build_template_context() flattens Pydantic models to dicts for Jinja2
-- PDFRenderer embeds CSS via <style> tag (self-contained HTML)
-- SHA256 content hashing for version deduplication in ReportStore
-- asyncio.to_thread() for all blocking I/O (file writes, PDF rendering)
-
-**Phase 10-04 Entry Points:**
-```python
-from osint_system.reporting import ReportGenerator, PDFRenderer, ReportStore
-
-# Generate Markdown report from AnalysisSynthesis
-generator = ReportGenerator()
-markdown = generator.generate_markdown(synthesis)
-await generator.save_markdown(markdown, "reports/inv-123-v1.md")
-
-# Generate executive brief only
-brief = generator.generate_executive_brief(synthesis)
-
-# Render PDF (returns None if WeasyPrint unavailable)
-renderer = PDFRenderer()
-pdf_path = await renderer.render_pdf(markdown, "reports/inv-123-v1.pdf")
-
-# Track report versions
-store = ReportStore(output_dir="reports/")
-record = await store.save_report("inv-123", markdown, synthesis=synthesis)
-print(record.version, record.content_hash)
-changed = await store.has_changed("inv-123", new_markdown)
+# Start server
+run_dashboard(host="127.0.0.1", port=8080)
 ```
