@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 9 Complete - Ready for Phase 10 Analysis & Reporting Engine
+**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 01 complete
 
 ## Current Position
 
-Phase: 9 of 10 (Knowledge Graph Integration)
-Plan: 5 of 5 in current phase
-Status: Phase complete
-Last activity: 2026-03-13 - Completed 09-05-PLAN.md
+Phase: 10 of 10 (Analysis & Reporting Engine)
+Plan: 1 of 5 in current phase
+Status: In progress
+Last activity: 2026-03-14 - Completed 10-01-PLAN.md
 
-Progress: ██████████████████████████████████████████████████████████████████████████████████████████████████████ 100%
+Progress: ████████████████████████████████████████████████████████████████████████████████████████████████████░░░░ 91%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 39
-- Average duration: 19.6 min
-- Total execution time: 762 min
+- Total plans completed: 40
+- Average duration: 19.3 min
+- Total execution time: 769 min
 
 **By Phase:**
 
@@ -36,10 +36,11 @@ Progress: ███████████████████████�
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
 | 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
+| 10-analysis-reporting-engine | 1/5 | 7 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 09-01 (4 min), 09-02 (6 min), 09-03 (7 min), 09-04 (6 min), 09-05 (10 min)
-- Trend: Phase 9 complete; graph layer built efficiently across 5 plans
+- Last 5 plans: 09-03 (7 min), 09-04 (6 min), 09-05 (10 min), 10-01 (7 min)
+- Trend: Steady pace; schemas and data aggregation layer built efficiently
 
 ## Accumulated Context
 
@@ -174,6 +175,13 @@ Recent decisions affecting current work:
 - Bulk ingestion uses single FactMapper for cross-fact entity resolution
 - GraphPipeline lazy-inits all components from config (matches VerificationPipeline pattern)
 - GraphEdge weight and cross_investigation stored as edge properties through batch merge
+- TYPE_CHECKING import for GraphPipeline in analysis layer to avoid cascading Settings singleton
+- InvestigationSnapshot as single typed container for all investigation data
+- DataAggregator parallel async fetching from all stores with asyncio.gather
+- AnalysisConfig.from_env() with ANALYSIS_ prefix env vars
+- Timeline confidence derived from classification credibility_score thresholds
+- Source inventory enriched from verification evidence authority scores
+- token_estimate() heuristic: len(json) / 4
 
 ### Deferred Issues
 
@@ -185,56 +193,43 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13
-Stopped at: Completed 09-05-PLAN.md (GraphIngestor & GraphPipeline Integration)
-Resume file: None - Phase 9 complete, ready for Phase 10
+Last session: 2026-03-14
+Stopped at: Completed 10-01-PLAN.md (Analysis Schemas & Data Aggregation)
+Resume file: None
 
-## Phase 9 Complete
+## Phase 10 In Progress
 
-Knowledge Graph Integration complete (5/5 plans):
-- **09-01:** Complete - GraphAdapter Protocol, GraphNode/GraphEdge/QueryResult, EdgeType (13 types), GraphConfig
-- **09-02:** Complete - NetworkXAdapter + Neo4jAdapter with batch UNWIND, context managers
-- **09-03:** Complete - FactMapper (entity resolution, alias tracking), RelationshipExtractor (rule+LLM hybrid)
-- **09-04:** Complete - Query pattern hardening (entity network, corroboration, timeline, shortest path)
-- **09-05:** Complete - GraphIngestor (event-driven), GraphPipeline (standalone+event), 21 integration tests
+Analysis & Reporting Engine (1/5 plans complete):
+- **10-01:** Complete - Analysis schemas (8 Pydantic models), DataAggregator, AnalysisConfig, Phase 10 deps
+- **10-02:** Pending - LLM synthesis engine
+- **10-03:** Pending - Report generation (Markdown + PDF)
+- **10-04:** Pending - Database export (SQLite + JSON archive)
+- **10-05:** Pending - Web dashboard (FastAPI + HTMX)
 
-Key patterns established:
-- Event-driven ingestion: MessageBus verification.complete -> GraphIngestor -> adapter
-- Full pipeline chain: classification.complete -> verification -> verification.complete -> graph
-- Four query patterns: entity_network, corroboration_clusters, timeline, shortest_path
-- Entity resolution via exact canonical match within FactMapper session
-- Dual adapter: NetworkXAdapter for tests/CI, Neo4jAdapter for production
-- Batch merge with label-grouped nodes for adapter efficiency
-- Status-filtered ingestion (CONFIRMED+SUPERSEDED default, all-statuses option)
+Key patterns established in 10-01:
+- InvestigationSnapshot: single typed container for all investigation data
+- DataAggregator: parallel async fetch from all stores into InvestigationSnapshot
+- AnalysisConfig: from_env() with ANALYSIS_ prefix (matches GraphConfig pattern)
+- 8 analysis output models: ConfidenceAssessment, KeyJudgment, AlternativeHypothesis, ContradictionEntry, TimelineEntry, SourceInventoryEntry, InvestigationSnapshot, AnalysisSynthesis
 
-**Phase 9 Full Pipeline:**
+**Phase 10-01 Entry Points:**
 ```python
-from osint_system.pipeline import GraphPipeline, VerificationPipeline
+from osint_system.analysis import (
+    DataAggregator,
+    AnalysisSynthesis,
+    InvestigationSnapshot,
+    KeyJudgment,
+    AlternativeHypothesis,
+    ConfidenceAssessment,
+)
+from osint_system.config.analysis_config import AnalysisConfig
 
-# Standalone graph ingestion
-pipeline = GraphPipeline()
-stats = await pipeline.run_ingestion("inv-123")
+# Aggregate all investigation data
+aggregator = DataAggregator(fact_store, classification_store, verification_store, graph_pipeline)
+snapshot = await aggregator.aggregate("inv-123")
+print(snapshot.fact_count, snapshot.confirmed_count, snapshot.token_estimate())
 
-# Query the graph
-result = await pipeline.query("entity_network", entity_id="inv-123:Putin")
-result = await pipeline.query("corroboration_clusters", investigation_id="inv-123")
-result = await pipeline.query("timeline", entity_id="inv-123:Putin")
-result = await pipeline.query("shortest_path", from_entity_id="inv-123:A", to_entity_id="inv-123:B")
-
-# Event-driven: register both pipelines
-verification = VerificationPipeline()
-graph = GraphPipeline()
-verification.register_with_pipeline(investigation_pipeline)
-graph.register_with_pipeline(investigation_pipeline)
-# Flow: classification.complete -> verification -> verification.complete -> graph
+# Load config
+config = AnalysisConfig.from_env()
+print(config.synthesis_model, config.temperature)
 ```
-
-## Phase 10 Readiness
-
-Phase 10 (Analysis & Reporting) can now build on:
-
-1. **Knowledge Graph:** Full entity-fact-source graph with verified relationships
-2. **Four Query Patterns:** entity_network, corroboration_clusters, timeline, shortest_path
-3. **Pipeline Integration:** GraphPipeline.query() for convenient access
-4. **Verification Data:** Confidence scores, evidence trails, human review status
-5. **Full Pipeline:** classification -> verification -> graph -> ready for analysis
