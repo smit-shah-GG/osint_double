@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OSINT Multi-Agent Intelligence System Dashboard">
     <title>{% block title %}OSINT Dashboard{% endblock %}</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- HTMX: 14KB gzipped, zero build step, partial page updates -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    {% block head_extra %}{% endblock %}
 </head>
 <body>
     <nav class="main-nav">
@@ -14,12 +17,29 @@
             <li><a href="/">Investigations</a></li>
             <li><a href="/monitoring/status">Monitoring</a></li>
         </ul>
+        <div class="nav-status">
+            <span id="connection-status"
+                  hx-get="/health"
+                  hx-trigger="every 30s"
+                  hx-target="#connection-status"
+                  hx-swap="innerHTML"
+                  hx-select="none">
+            </span>
+        </div>
     </nav>
+
+    {% block breadcrumb %}{% endblock %}
+
     <main class="content">
         {% block content %}{% endblock %}
     </main>
+
     <footer class="main-footer">
         <span>OSINT Multi-Agent System v0.1.0</span>
+        <span class="footer-sep">|</span>
+        <span>FastAPI + Jinja2 + HTMX</span>
     </footer>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>
