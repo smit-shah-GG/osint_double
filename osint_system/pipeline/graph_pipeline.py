@@ -79,7 +79,16 @@ class GraphPipeline:
         self._classification_store = classification_store
         self._config = config
         self._adapter_initialized = False
+        self._message_bus: Any | None = None
         self._log = logger.bind(component="GraphPipeline")
+
+    def set_message_bus(self, bus: Any) -> None:
+        """Store a MessageBus reference for downstream event emission.
+
+        Args:
+            bus: MessageBus instance with async publish() method.
+        """
+        self._message_bus = bus
 
     @property
     def config(self) -> GraphConfig:
@@ -173,6 +182,17 @@ class GraphPipeline:
             investigation_id=investigation_id,
             **stats,
         )
+
+        # Emit graph.ingested event for downstream pipelines (e.g. AnalysisPipeline)
+        if self._message_bus is not None:
+            await self._message_bus.publish(
+                "graph.ingested",
+                {
+                    "investigation_id": investigation_id,
+                    "ingestion_stats": stats,
+                },
+            )
+
         return stats
 
     async def run_ingestion(
@@ -216,6 +236,9 @@ class GraphPipeline:
         Args:
             investigation_pipeline: InvestigationPipeline with on_event method.
         """
+        if hasattr(investigation_pipeline, "message_bus"):
+            self._message_bus = investigation_pipeline.message_bus
+
         if hasattr(investigation_pipeline, "on_event"):
             investigation_pipeline.on_event(
                 "verification.complete",
