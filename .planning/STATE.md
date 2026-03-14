@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 04 complete
+**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 03 complete (10-04 also complete)
 
 ## Current Position
 
 Phase: 10 of 10 (Analysis & Reporting Engine)
 Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-03-14 - Completed 10-04-PLAN.md
+Last activity: 2026-03-14 - Completed 10-03-PLAN.md
 
 Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████████░ 98%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 43
-- Average duration: 18.3 min
-- Total execution time: 786 min
+- Total plans completed: 44
+- Average duration: 18.1 min
+- Total execution time: 796 min
 
 **By Phase:**
 
@@ -36,11 +36,11 @@ Progress: ███████████████████████�
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
 | 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
-| 10-analysis-reporting-engine | 4/5 | 24 min | 6 min |
+| 10-analysis-reporting-engine | 4/5 | 34 min | 8.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 09-05 (10 min), 10-01 (7 min), 10-02 (5 min), 10-04 (6 min)
-- Trend: Consistent sub-10min pace; reporting pipeline built efficiently
+- Last 5 plans: 09-05 (10 min), 10-01 (7 min), 10-02 (5 min), 10-03 (10 min), 10-04 (6 min)
+- Trend: Consistent pace; synthesis engine built with full test coverage
 
 ## Accumulated Context
 
@@ -186,6 +186,12 @@ Recent decisions affecting current work:
 - Timeline confidence derived from classification credibility_score thresholds
 - Source inventory enriched from verification evidence authority scores
 - token_estimate() heuristic: len(json) / 4
+- TYPE_CHECKING import for AnalysisReportingAgent in AnalysisPipeline to avoid cascading Settings singleton
+- GraphPipeline.set_message_bus() for graph.ingested event emission via MessageBus
+- Sectioned LLM synthesis: 5 focused prompts instead of single monolithic call
+- ReportGenerator and ReportStore typed as Any in AnalysisPipeline (optional downstream deps)
+- Contradiction detection from 3 sources: explicit relationships, refuted verifications, conflicting assertion_types
+- Overall confidence computed as weighted average of key judgment confidences
 - Jinja2 Environment with trim_blocks and lstrip_blocks for clean Markdown template output
 - Embedded CSS via <style> tag in PDFRenderer (avoids WeasyPrint file path issues)
 - WeasyPrint graceful fallback: render_pdf() returns None when unavailable
@@ -203,7 +209,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 10-04-PLAN.md (Report Generation)
+Stopped at: Completed 10-03-PLAN.md (LLM Synthesis Engine & Analysis Pipeline)
 Resume file: None
 
 ## Phase 10 In Progress
@@ -211,7 +217,7 @@ Resume file: None
 Analysis & Reporting Engine (4/5 plans complete):
 - **10-01:** Complete - Analysis schemas (8 Pydantic models), DataAggregator, AnalysisConfig, Phase 10 deps
 - **10-02:** Complete - InvestigationExporter (SQLite) + InvestigationArchive (JSON), 19 tests
-- **10-03:** Pending - LLM synthesis engine
+- **10-03:** Complete - Synthesizer (sectioned LLM), PatternDetector, ContradictionAnalyzer, AnalysisReportingAgent, AnalysisPipeline, 38 tests
 - **10-04:** Complete - ReportGenerator (Jinja2), PDFRenderer (mistune + WeasyPrint), ReportStore (versioned), 32 tests
 - **10-05:** Pending - Web dashboard (FastAPI + HTMX)
 
@@ -264,6 +270,36 @@ archive_path = await archive.create_archive("inv-123")
 
 # Load and validate archive
 data = await InvestigationArchive.load_archive(archive_path)
+```
+
+Key patterns established in 10-03:
+- Sectioned LLM synthesis: 5 focused prompts with independent error handling
+- Pipeline chain extension via graph.ingested event (GraphPipeline -> AnalysisPipeline)
+- Optional downstream dependencies via Any typing (report_generator/report_store)
+- TYPE_CHECKING import for agent classes to avoid Settings cascade
+
+**Phase 10-03 Entry Points:**
+```python
+from osint_system.pipeline import AnalysisPipeline
+from osint_system.analysis import Synthesizer, PatternDetector, ContradictionAnalyzer
+from osint_system.agents.sifters.analysis_reporting_agent import AnalysisReportingAgent
+
+# Standalone analysis
+pipeline = AnalysisPipeline(fact_store=fs, classification_store=cs, verification_store=vs)
+synthesis = await pipeline.run_analysis("inv-123")
+print(synthesis.executive_summary, len(synthesis.key_judgments))
+
+# Event-driven (auto-triggered by GraphPipeline)
+pipeline.register_with_pipeline(investigation_pipeline)
+
+# Direct synthesis
+config = AnalysisConfig.from_env()
+synth = Synthesizer(config=config)
+result = await synth.synthesize(snapshot)
+
+# Pattern detection (no LLM)
+patterns = PatternDetector().detect_patterns(snapshot)
+contradictions = ContradictionAnalyzer().find_contradictions(snapshot)
 ```
 
 Key patterns established in 10-04:
