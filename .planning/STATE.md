@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-10)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 01 complete
+**Current focus:** Phase 10 Analysis & Reporting Engine - Plan 02 complete
 
 ## Current Position
 
 Phase: 10 of 10 (Analysis & Reporting Engine)
-Plan: 1 of 5 in current phase
+Plan: 2 of 5 in current phase
 Status: In progress
-Last activity: 2026-03-14 - Completed 10-01-PLAN.md
+Last activity: 2026-03-14 - Completed 10-02-PLAN.md
 
-Progress: ████████████████████████████████████████████████████████████████████████████████████████████████████░░░░ 91%
+Progress: █████████████████████████████████████████████████████████████████████████████████████████████████████░░░ 93%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40
-- Average duration: 19.3 min
-- Total execution time: 769 min
+- Total plans completed: 41
+- Average duration: 18.9 min
+- Total execution time: 774 min
 
 **By Phase:**
 
@@ -36,11 +36,11 @@ Progress: ███████████████████████�
 | 07-fact-classification-system | 4/4 | 34 min | 8.5 min |
 | 08-verification-loop | 4/4 | 60 min | 15 min |
 | 09-knowledge-graph-integration | 5/5 | 33 min | 6.6 min |
-| 10-analysis-reporting-engine | 1/5 | 7 min | 7 min |
+| 10-analysis-reporting-engine | 2/5 | 12 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 09-03 (7 min), 09-04 (6 min), 09-05 (10 min), 10-01 (7 min)
-- Trend: Steady pace; schemas and data aggregation layer built efficiently
+- Last 5 plans: 09-04 (6 min), 09-05 (10 min), 10-01 (7 min), 10-02 (5 min)
+- Trend: Steady pace; export layer built efficiently
 
 ## Accumulated Context
 
@@ -175,6 +175,10 @@ Recent decisions affecting current work:
 - Bulk ingestion uses single FactMapper for cross-fact entity resolution
 - GraphPipeline lazy-inits all components from config (matches VerificationPipeline pattern)
 - GraphEdge weight and cross_investigation stored as edge properties through batch merge
+- Entity IDs in SQLite use canonical:type composite key for global uniqueness (not per-fact E1/E2 markers)
+- Schema v1.0 uses TEXT columns for JSON-serialized complex fields for maximum SQLite tool portability
+- Sources table derived from fact provenance at export time (not separately stored)
+- Archive dubious_count aggregates unverifiable + pending + in_progress verification statuses
 - TYPE_CHECKING import for GraphPipeline in analysis layer to avoid cascading Settings singleton
 - InvestigationSnapshot as single typed container for all investigation data
 - DataAggregator parallel async fetching from all stores with asyncio.gather
@@ -194,16 +198,16 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 10-01-PLAN.md (Analysis Schemas & Data Aggregation)
+Stopped at: Completed 10-02-PLAN.md (Investigation Database Export)
 Resume file: None
 
 ## Phase 10 In Progress
 
-Analysis & Reporting Engine (1/5 plans complete):
+Analysis & Reporting Engine (2/5 plans complete):
 - **10-01:** Complete - Analysis schemas (8 Pydantic models), DataAggregator, AnalysisConfig, Phase 10 deps
-- **10-02:** Pending - LLM synthesis engine
-- **10-03:** Pending - Report generation (Markdown + PDF)
-- **10-04:** Pending - Database export (SQLite + JSON archive)
+- **10-02:** Complete - InvestigationExporter (SQLite) + InvestigationArchive (JSON), 19 tests
+- **10-03:** Pending - LLM synthesis engine
+- **10-04:** Pending - Report generation (Markdown + PDF)
 - **10-05:** Pending - Web dashboard (FastAPI + HTMX)
 
 Key patterns established in 10-01:
@@ -232,4 +236,27 @@ print(snapshot.fact_count, snapshot.confirmed_count, snapshot.token_estimate())
 # Load config
 config = AnalysisConfig.from_env()
 print(config.synthesis_model, config.temperature)
+```
+
+Key patterns established in 10-02:
+- Store aggregation: export layer reads from multiple stores to create unified output
+- Schema versioning: archive files include schema_version for forward compatibility
+- Static load/validate: InvestigationArchive.load_archive() as static method for standalone validation
+
+**Phase 10-02 Entry Points:**
+```python
+from osint_system.database import InvestigationExporter, InvestigationArchive
+
+# SQLite export
+exporter = InvestigationExporter(fact_store, classification_store, verification_store)
+db_path = await exporter.export("inv-123")
+# -> queryable .db file with 6 normalized tables
+
+# JSON archive
+archive = InvestigationArchive(fact_store, classification_store, verification_store)
+archive_path = await archive.create_archive("inv-123")
+# -> self-contained JSON with schema versioning and statistics
+
+# Load and validate archive
+data = await InvestigationArchive.load_archive(archive_path)
 ```
