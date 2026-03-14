@@ -5,6 +5,7 @@ for investigation data. Both outputs are designed for external
 tool consumption and investigation reproducibility.
 """
 
+from osint_system.database.archive import InvestigationArchive
 from osint_system.database.exporter import InvestigationExporter
 
-__all__ = ["InvestigationExporter"]
+__all__ = ["InvestigationArchive", "InvestigationExporter"]
