@@ -8,6 +8,7 @@ Key exports:
 - DataAggregator: Collects all investigation data into InvestigationSnapshot
 """
 
+from osint_system.analysis.data_aggregator import DataAggregator
 from osint_system.analysis.schemas import (
     AlternativeHypothesis,
     AnalysisSynthesis,
@@ -21,6 +22,7 @@ from osint_system.analysis.schemas import (
 
 __all__ = [
     "AnalysisSynthesis",
+    "DataAggregator",
     "KeyJudgment",
     "AlternativeHypothesis",
     "ConfidenceAssessment",
