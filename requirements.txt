@@ -35,3 +35,11 @@ playwright>=1.40.0  # Browser automation for JS-heavy sites
 # Graph database dependencies
 neo4j>=6.1.0  # Official Neo4j async Python driver
 networkx>=3.0  # In-memory graph for tests/CI (no Docker dependency)
+
+# Analysis & reporting engine dependencies (Phase 10)
+aiosqlite>=0.22.1  # Async SQLite for investigation database export
+mistune>=3.0  # Markdown -> HTML parser (CommonMark-compatible)
+WeasyPrint>=68.1  # HTML/CSS -> PDF rendering
+Jinja2>=3.1.6  # Template engine for reports and dashboard
+fastapi>=0.115.0  # Async web framework for dashboard
+uvicorn>=0.30.0  # ASGI server for dashboard
