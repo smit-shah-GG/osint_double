@@ -135,13 +135,64 @@ Deferred beyond v2.0.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| CRAWL-01 | Phase 11 | Pending |
+| CRAWL-02 | Phase 11 | Pending |
+| CRAWL-03 | Phase 11 | Pending |
+| CRAWL-04 | Phase 11 | Pending |
+| EXTRACT-01 | Phase 11 | Pending |
+| EXTRACT-02 | Phase 11 | Pending |
+| EXTRACT-03 | Phase 11 | Pending |
+| VERIFY-01 | Phase 11 | Pending |
+| VERIFY-02 | Phase 11 | Pending |
+| VERIFY-03 | Phase 11 | Pending |
+| API-01 | Phase 12 | Pending |
+| API-02 | Phase 12 | Pending |
+| API-03 | Phase 12 | Pending |
+| API-04 | Phase 12 | Pending |
+| API-05 | Phase 12 | Pending |
+| API-06 | Phase 12 | Pending |
+| API-07 | Phase 12 | Pending |
+| EVENT-01 | Phase 12 | Pending |
+| EVENT-02 | Phase 12 | Pending |
+| EVENT-03 | Phase 12 | Pending |
+| STORE-01 | Phase 13 | Pending |
+| STORE-02 | Phase 13 | Pending |
+| STORE-03 | Phase 13 | Pending |
+| STORE-04 | Phase 13 | Pending |
+| STORE-05 | Phase 13 | Pending |
+| STORE-06 | Phase 13 | Pending |
+| UI-INV-01 | Phase 14 | Pending |
+| UI-INV-02 | Phase 14 | Pending |
+| UI-INV-03 | Phase 14 | Pending |
+| UI-INV-04 | Phase 14 | Pending |
+| UI-INV-05 | Phase 14 | Pending |
+| INFRA-04 | Phase 14 | Pending |
+| UI-RPT-01 | Phase 15 | Pending |
+| UI-RPT-02 | Phase 15 | Pending |
+| UI-RPT-03 | Phase 15 | Pending |
+| UI-RPT-04 | Phase 15 | Pending |
+| UI-RPT-05 | Phase 15 | Pending |
+| UI-RPT-06 | Phase 15 | Pending |
+| UI-RPT-07 | Phase 15 | Pending |
+| UI-GRAPH-01 | Phase 15 | Pending |
+| UI-GRAPH-02 | Phase 15 | Pending |
+| UI-GRAPH-03 | Phase 15 | Pending |
+| UI-GRAPH-04 | Phase 15 | Pending |
+| UI-SRC-01 | Phase 16 | Pending |
+| UI-SRC-02 | Phase 16 | Pending |
+| UI-SRC-03 | Phase 16 | Pending |
+| UI-CFG-01 | Phase 16 | Pending |
+| UI-CFG-02 | Phase 16 | Pending |
+| UI-CFG-03 | Phase 16 | Pending |
+| INFRA-01 | Phase 16 | Pending |
+| INFRA-02 | Phase 16 | Pending |
+| INFRA-03 | Phase 16 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 46 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 46
+- v2.0 requirements: 52 total
+- Mapped to phases: 52/52
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation (all requirements mapped)*

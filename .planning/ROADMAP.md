@@ -1,196 +1,218 @@
 # Roadmap: OSINT Intelligence System
 
-## Overview
+## Milestones
 
-A comprehensive journey from zero to a fully functional LLM-powered multi-agent intelligence gathering system. Starting with foundational infrastructure, we'll build specialized crawler and sifter agent cohorts, implement sophisticated fact extraction and verification loops, integrate a knowledge graph for enhanced reasoning, and culminate in a powerful analysis engine that produces actionable geopolitical intelligence from diverse open sources.
-
-## Domain Expertise
-
-None
+- ✅ **v1.0 Core Pipeline** - Phases 1-10 (shipped 2026-03-14)
+- 🚧 **v2.0 Production Hardening & Frontend** - Phases 11-16 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Foundation & Environment Setup** - Python environment, Gemini API, project structure ✓ Complete
-- [x] **Phase 2: Base Agent Architecture** - Core agent classes, MCP/A2A protocols ✓ Complete
-- [x] **Phase 3: Planning & Orchestration Agent** - Task decomposition and hierarchical coordination ✓ Complete
-- [x] **Phase 4: News Crawler Implementation** - RSS feeds and news API integration ✓ Complete
-- [x] **Phase 5: Extended Crawler Cohort** - Social media and document crawlers ✓ Complete
-- [x] **Phase 6: Fact Extraction Pipeline** - LLM-powered fact identification and extraction ✓ Complete
-- [x] **Phase 7: Fact Classification System** - Three-tier categorization and credibility assessment ✓ Complete
-- [x] **Phase 8: Verification Loop** - Dubious fact investigation and re-classification ✓ Complete
-- [x] **Phase 9: Knowledge Graph Integration** - Graph database and relationship mapping ✓ Complete
-- [x] **Phase 10: Analysis & Reporting Engine** - Synthesis, multiple outputs, dashboard ✓ Complete
-
-## Phase Details
+<details>
+<summary>✅ v1.0 Core Pipeline (Phases 1-10) - SHIPPED 2026-03-14</summary>
 
 ### Phase 1: Foundation & Environment Setup
 **Goal**: Establish development environment with all base dependencies and API connectivity
-**Depends on**: Nothing (first phase)
-**Research**: Unlikely (established patterns)
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-01-10
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 01-01: Set up uv environment and core dependencies ✓
-- [x] 01-02: Configure Pydantic settings and logging infrastructure ✓
-- [x] 01-03: Integrate Gemini API with rate limiting ✓
-- [x] 01-04: Basic agent proof-of-concept ✓
+- [x] 01-01: Set up uv environment and core dependencies
+- [x] 01-02: Configure Pydantic settings and logging infrastructure
+- [x] 01-03: Integrate Gemini API with rate limiting
+- [x] 01-04: Basic agent proof-of-concept
 
 ### Phase 2: Base Agent Architecture
 **Goal**: Create foundational agent classes with MCP tool integration and A2A communication
-**Depends on**: Phase 1
-**Research**: Complete ✓
-**Research topics**: MCP protocol implementation, A2A communication patterns, agent interface design
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-01-11
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 02-01: Dependencies & Enhanced BaseAgent ✓
-- [x] 02-02: Message Bus & Registry ✓
-- [x] 02-03: LangGraph Orchestration ✓
-- [x] 02-04: MCP Tool Server & Integration ✓
+- [x] 02-01: Dependencies & Enhanced BaseAgent
+- [x] 02-02: Message Bus & Registry
+- [x] 02-03: LangGraph Orchestration
+- [x] 02-04: MCP Tool Server & Integration
 
 ### Phase 3: Planning & Orchestration Agent
 **Goal**: Build the central coordinator for objective decomposition and task distribution
-**Depends on**: Phase 2
-**Research**: Complete ✓
-**Research topics**: LangGraph supervisor patterns, task queue implementations, hierarchical workflows
-**Plans**: 3 plans (3/3 complete)
-**Status**: Complete ✓
-**Completed**: 2026-01-12
+**Plans**: 3/3 complete
 
 Plans:
-- [x] 03-01: Implement Planning Agent with LangGraph ✓
-- [x] 03-02: Create task queue and distribution system ✓
-- [x] 03-03: Build supervisor-worker coordination patterns ✓
+- [x] 03-01: Implement Planning Agent with LangGraph
+- [x] 03-02: Create task queue and distribution system
+- [x] 03-03: Build supervisor-worker coordination patterns
 
 ### Phase 4: News Crawler Implementation
 **Goal**: Deploy first crawler for news sources with filtering and metadata preservation
-**Depends on**: Phase 3
-**Research**: Complete ✓
-**Research topics**: News API options (NewsAPI, GDELT), RSS feed parsing, rate limiting strategies
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-01-13
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 04-01: Implement NewsFeedAgent base functionality ✓
-- [x] 04-02: Integrate RSS feeds and NewsAPI ✓
-- [x] 04-03: Add filtering and metadata extraction ✓
-- [x] 04-04: Data routing and integration ✓
+- [x] 04-01: Implement NewsFeedAgent base functionality
+- [x] 04-02: Integrate RSS feeds and NewsAPI
+- [x] 04-03: Add filtering and metadata extraction
+- [x] 04-04: Data routing and integration
 
 ### Phase 5: Extended Crawler Cohort
 **Goal**: Expand data acquisition with social media and document crawlers
-**Depends on**: Phase 4
-**Research**: Complete ✓
-**Research topics**: Reddit API authentication, web scraping best practices, document parsing libraries
-**Plans**: 6 plans (6/6 complete)
-**Status**: Complete ✓
-**Completed**: 2026-02-01
+**Plans**: 6/6 complete
 
 Plans:
-- [x] 05-01: Reddit crawler setup ✓
-- [x] 05-02: Reddit data collection and integration ✓
-- [x] 05-03: Document crawler setup ✓
-- [x] 05-04: Web scraper enhancement ✓
-- [x] 05-05: Crawler coordination system ✓
-- [x] 05-06: Integration testing ✓
+- [x] 05-01: Reddit crawler setup
+- [x] 05-02: Reddit data collection and integration
+- [x] 05-03: Document crawler setup
+- [x] 05-04: Web scraper enhancement
+- [x] 05-05: Crawler coordination system
+- [x] 05-06: Integration testing
 
 ### Phase 6: Fact Extraction Pipeline
 **Goal**: Extract discrete, verifiable facts from raw text with structured output per CONTEXT.md schema
-**Depends on**: Phase 5
-**Research**: Unlikely (internal LLM prompting using established patterns)
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-02-03
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 06-01: Pydantic schemas for fact output (ExtractedFact, Entity, Provenance) ✓
-- [x] 06-02: FactExtractionAgent with Gemini prompts ✓
-- [x] 06-03: FactStore and FactConsolidator for dedup/storage ✓
-- [x] 06-04: ExtractionPipeline bridging crawler output to fact extraction ✓
+- [x] 06-01: Pydantic schemas for fact output (ExtractedFact, Entity, Provenance)
+- [x] 06-02: FactExtractionAgent with Gemini prompts
+- [x] 06-03: FactStore and FactConsolidator for dedup/storage
+- [x] 06-04: ExtractionPipeline bridging crawler output to fact extraction
 
 ### Phase 7: Fact Classification System
 **Goal**: Categorize facts into critical/less-critical/dubious tiers with credibility scoring
-**Depends on**: Phase 6
-**Research**: Unlikely (internal logic and prompt engineering)
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-02-03
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 07-01: Classification schema and agent structure ✓
-- [x] 07-02: Credibility scoring system ✓
-- [x] 07-03: Dubious detection with Boolean logic gates ✓
-- [x] 07-04: Impact assessment and full integration ✓
+- [x] 07-01: Classification schema and agent structure
+- [x] 07-02: Credibility scoring system
+- [x] 07-03: Dubious detection with Boolean logic gates
+- [x] 07-04: Impact assessment and full integration
 
 ### Phase 8: Verification Loop
-**Goal**: Investigate and resolve dubious facts through targeted searches, producing confirmed/refuted/unverifiable outcomes
-**Depends on**: Phase 7
-**Research**: Complete ✓
-**Plans**: 4 plans (4/4 complete)
-**Status**: Complete ✓
-**Completed**: 2026-02-11
+**Goal**: Investigate and resolve dubious facts through targeted searches
+**Plans**: 4/4 complete
 
 Plans:
-- [x] 08-01: Verification schemas and status types (VerificationStatus, VerificationResult, EvidenceItem) ✓
-- [x] 08-02: Species-specialized query generation (PHANTOM/FOG/ANOMALY strategies) ✓
-- [x] 08-03: Evidence aggregation and re-classification (authority-weighted corroboration) ✓
-- [x] 08-04: VerificationAgent with batch processing and full integration ✓
+- [x] 08-01: Verification schemas and status types
+- [x] 08-02: Species-specialized query generation
+- [x] 08-03: Evidence aggregation and re-classification
+- [x] 08-04: VerificationAgent with batch processing and full integration
 
 ### Phase 9: Knowledge Graph Integration
-**Goal**: Transform verified facts, entities, and relationships into a queryable Neo4j graph with event-driven ingestion from the verification pipeline
-**Depends on**: Phase 8
-**Research**: Complete ✓
-**Research topics**: Graph database options (Neo4j, NetworkX), fact-to-graph mapping patterns, query languages
-**Plans**: 5 plans (5/5 complete)
-**Status**: Complete ✓
-**Completed**: 2026-03-13
+**Goal**: Transform verified facts, entities, and relationships into a queryable graph
+**Plans**: 5/5 complete
 
 Plans:
-- [x] 09-01: Graph Pydantic schemas, GraphAdapter Protocol, and Neo4j config ✓
-- [x] 09-02: Neo4j + NetworkX adapters, Cypher queries, docker-compose, adapter tests ✓
-- [x] 09-03: FactMapper and RelationshipExtractor (hybrid rule + LLM) ✓
-- [x] 09-04: Four query patterns validated with comprehensive test suite ✓
-- [x] 09-05: GraphIngestor, GraphPipeline, and end-to-end integration ✓
+- [x] 09-01: Graph Pydantic schemas, GraphAdapter Protocol, and Neo4j config
+- [x] 09-02: Neo4j + NetworkX adapters, Cypher queries, docker-compose, adapter tests
+- [x] 09-03: FactMapper and RelationshipExtractor (hybrid rule + LLM)
+- [x] 09-04: Four query patterns validated with comprehensive test suite
+- [x] 09-05: GraphIngestor, GraphPipeline, and end-to-end integration
 
 ### Phase 10: Analysis & Reporting Engine
 **Goal**: Generate intelligence products with multiple output formats and dashboard
-**Depends on**: Phase 9
-**Research**: Unlikely (internal patterns, uses existing components)
-**Plans**: 5 plans (5/5 complete)
-**Status**: Complete ✓
-**Completed**: 2026-03-14
+**Plans**: 5/5 complete
 
 Plans:
-- [x] 10-01: Analysis schemas, DataAggregator, AnalysisConfig, Phase 10 dependencies ✓
-- [x] 10-02: SQLite InvestigationExporter, JSON InvestigationArchive, ClassificationStore API ✓
-- [x] 10-03: Synthesizer, PatternDetector, ContradictionAnalyzer, AnalysisReportingAgent, AnalysisPipeline ✓
-- [x] 10-04: ReportGenerator (Jinja2), PDFRenderer (WeasyPrint), ReportStore (versioned) ✓
-- [x] 10-05: FastAPI dashboard with HTMX, 5 route modules, data-dense CSS ✓
+- [x] 10-01: Analysis schemas, DataAggregator, AnalysisConfig, Phase 10 dependencies
+- [x] 10-02: SQLite InvestigationExporter, JSON InvestigationArchive, ClassificationStore API
+- [x] 10-03: Synthesizer, PatternDetector, ContradictionAnalyzer, AnalysisReportingAgent, AnalysisPipeline
+- [x] 10-04: ReportGenerator (Jinja2), PDFRenderer (WeasyPrint), ReportStore (versioned)
+- [x] 10-05: FastAPI dashboard with HTMX, 5 route modules, data-dense CSS
+
+</details>
+
+### 🚧 v2.0 Production Hardening & Frontend (In Progress)
+
+**Milestone Goal:** Harden the pipeline for reliable unattended operation, build a production-quality Next.js frontend, and prepare for deployment.
+
+- [ ] **Phase 11: Crawler Hardening & Pipeline Quality** - Fix crawler fragility, extraction drops, verification coverage gaps
+- [ ] **Phase 12: API Layer & Pipeline Events** - REST API endpoints, event bus, SSE streaming for frontend consumption
+- [ ] **Phase 13: SQLite Storage Migration** - Replace in-memory+JSON stores with SQLAlchemy+SQLite persistence
+- [ ] **Phase 14: Next.js Frontend Shell** - Monorepo setup, App Router, investigation launch and live progress
+- [ ] **Phase 15: Report Viewer & Knowledge Graph** - Analytical report display, fact drill-down, interactive graph visualization
+- [ ] **Phase 16: Feature Completion & Deployment** - Source management, configuration profiles, cost tracking, Docker deployment
+
+## Phase Details
+
+### Phase 11: Crawler Hardening & Pipeline Quality
+**Goal**: Investigations run reliably against real-world sources without silent data loss from bot detection, malformed LLM output, or over-aggressive noise filtering
+**Depends on**: Phase 10 (v1.0 complete)
+**Requirements**: CRAWL-01, CRAWL-02, CRAWL-03, CRAWL-04, EXTRACT-01, EXTRACT-02, EXTRACT-03, VERIFY-01, VERIFY-02, VERIFY-03
+**Success Criteria** (what must be TRUE):
+  1. Crawler fetches content from JS-heavy and Cloudflare-protected sites via Playwright BrowserPool without OOM crashes during batch runs
+  2. When article fetch fails, the pipeline falls back to RSS entry summary content and still extracts facts from it
+  3. Extraction produces valid structured facts regardless of which LLM model in the fallback chain handles the request (no silent drops from thinking tokens, unrecognized enum values, or schema mismatches)
+  4. Verification coverage improves: facts that were previously bulk-classified as NOISE are now correctly routed through verification with adversarial query variants, and unverifiable facts are ingested into the knowledge graph with status tagging
+**Plans**: TBD
+
+### Phase 12: API Layer & Pipeline Events
+**Goal**: The backend exposes a complete JSON REST API and real-time event stream that the frontend can consume to launch, monitor, and review investigations
+**Depends on**: Phase 11
+**Requirements**: API-01, API-02, API-03, API-04, API-05, API-06, API-07, EVENT-01, EVENT-02, EVENT-03
+**Success Criteria** (what must be TRUE):
+  1. A POST request to the investigations endpoint creates an investigation record, spawns the pipeline as a background task, and returns the investigation ID with a stream URL
+  2. An SSE connection to the stream endpoint receives structured events (phase_started, phase_progress, phase_completed, pipeline_completed, pipeline_error) in real time as the pipeline executes, with Last-Event-ID reconnection support
+  3. GET endpoints return JSON for investigation detail, paginated fact lists with classification and verification status, report content with version history, source inventory with authority scores, and graph node/edge data
+  4. The OpenAPI spec auto-generated at /openapi.json accurately describes all endpoints and response models, ready for TypeScript client generation
+**Plans**: TBD
+
+### Phase 13: SQLite Storage Migration
+**Goal**: All investigation data persists durably in SQLite, surviving process restarts, with no behavioral changes to pipeline or API code
+**Depends on**: Phase 12
+**Requirements**: STORE-01, STORE-02, STORE-03, STORE-04, STORE-05, STORE-06
+**Success Criteria** (what must be TRUE):
+  1. An investigation completed before server restart is fully available after restart with all articles, facts, classifications, verifications, and report data intact
+  2. Concurrent API reads during an active pipeline run do not block or produce stale data (WAL mode verified)
+  3. Existing pipeline and agent code runs without modification against the new store implementations (interface contract preserved)
+  4. A migration script converts existing JSON-persisted investigation data into the SQLite database, and Alembic manages schema versioning for future changes
+**Plans**: TBD
+
+### Phase 14: Next.js Frontend Shell
+**Goal**: Users can launch investigations, watch live pipeline progress, and browse investigation history through a web interface
+**Depends on**: Phase 13
+**Requirements**: UI-INV-01, UI-INV-02, UI-INV-03, UI-INV-04, UI-INV-05, INFRA-04
+**Success Criteria** (what must be TRUE):
+  1. User fills out an investigation launch form (objective, model selection, parameters), submits it, and the pipeline starts executing on the backend
+  2. While the pipeline runs, the user sees live stage indicators with article/fact/verification counts updating in real time, elapsed time per phase, and error display on failures
+  3. User can view a history list of all investigations with summary stats (fact count, confirmed count, confidence), click into any investigation to see tabbed detail views, and see a streaming log panel during execution
+  4. The frontend is a Next.js App Router project in `frontend/` with a generated TypeScript API client providing type-safe API access
+**Plans**: TBD
+
+### Phase 15: Report Viewer & Knowledge Graph
+**Goal**: Users can read and navigate intelligence reports with fact provenance drill-down, and explore the knowledge graph visually to discover entity relationships
+**Depends on**: Phase 14
+**Requirements**: UI-RPT-01, UI-RPT-02, UI-RPT-03, UI-RPT-04, UI-RPT-05, UI-RPT-06, UI-RPT-07, UI-GRAPH-01, UI-GRAPH-02, UI-GRAPH-03, UI-GRAPH-04
+**Success Criteria** (what must be TRUE):
+  1. User reads the rendered intelligence report with collapsible sections, clicks a key judgment, and drills down to the supporting facts with full provenance chain (source URL, extraction date, verification status)
+  2. Report displays confidence badges (color-coded low/moderate/high), an alternative hypothesis comparison panel, contradiction highlights with resolution status, source attribution with authority scores, and a version selector with regeneration trigger
+  3. User opens the knowledge graph view and sees an interactive force-directed visualization (WebGL) with node type coloring, can filter nodes by type (Fact, Entity, Source, Investigation), click an entity to highlight its relationships and traverse the graph, and see verification status coloring on fact nodes
+**Plans**: TBD
+
+### Phase 16: Feature Completion & Deployment
+**Goal**: Users can manage sources, configure investigation profiles, track costs, and deploy the entire system via Docker Compose
+**Depends on**: Phase 15
+**Requirements**: UI-SRC-01, UI-SRC-02, UI-SRC-03, UI-CFG-01, UI-CFG-02, UI-CFG-03, INFRA-01, INFRA-02, INFRA-03
+**Success Criteria** (what must be TRUE):
+  1. User views a source health dashboard showing crawl success rates per domain, can view and edit authority score baselines, and can review RSS feed configurations
+  2. User selects models with a cost estimation preview, saves named configuration profiles (thorough/quick/budget), loads profiles to pre-fill investigation parameters, and saves/loads investigation templates
+  3. After each investigation completes, the user can see token usage and cost breakdown (from OpenRouter response headers) for that run
+  4. The system deploys as two Docker containers (Python backend + Next.js frontend) via `docker compose up`, with health checks, restart policies, and documented environment variables
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation & Environment Setup | 4/4 | Complete ✓ | 2026-01-10 |
-| 2. Base Agent Architecture | 4/4 | Complete ✓ | 2026-01-12 |
-| 3. Planning & Orchestration Agent | 3/3 | Complete ✓ | 2026-01-12 |
-| 4. News Crawler Implementation | 4/4 | Complete ✓ | 2026-01-13 |
-| 5. Extended Crawler Cohort | 6/6 | Complete ✓ | 2026-02-01 |
-| 6. Fact Extraction Pipeline | 4/4 | Complete ✓ | 2026-02-03 |
-| 7. Fact Classification System | 4/4 | Complete ✓ | 2026-02-03 |
-| 8. Verification Loop | 4/4 | Complete ✓ | 2026-02-11 |
-| 9. Knowledge Graph Integration | 5/5 | Complete ✓ | 2026-03-13 |
-| 10. Analysis & Reporting Engine | 5/5 | Complete ✓ | 2026-03-14 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation & Environment Setup | v1.0 | 4/4 | Complete | 2026-01-10 |
+| 2. Base Agent Architecture | v1.0 | 4/4 | Complete | 2026-01-12 |
+| 3. Planning & Orchestration Agent | v1.0 | 3/3 | Complete | 2026-01-12 |
+| 4. News Crawler Implementation | v1.0 | 4/4 | Complete | 2026-01-13 |
+| 5. Extended Crawler Cohort | v1.0 | 6/6 | Complete | 2026-02-01 |
+| 6. Fact Extraction Pipeline | v1.0 | 4/4 | Complete | 2026-02-03 |
+| 7. Fact Classification System | v1.0 | 4/4 | Complete | 2026-02-03 |
+| 8. Verification Loop | v1.0 | 4/4 | Complete | 2026-02-11 |
+| 9. Knowledge Graph Integration | v1.0 | 5/5 | Complete | 2026-03-13 |
+| 10. Analysis & Reporting Engine | v1.0 | 5/5 | Complete | 2026-03-14 |
+| 11. Crawler Hardening & Pipeline Quality | v2.0 | 0/TBD | Not started | - |
+| 12. API Layer & Pipeline Events | v2.0 | 0/TBD | Not started | - |
+| 13. SQLite Storage Migration | v2.0 | 0/TBD | Not started | - |
+| 14. Next.js Frontend Shell | v2.0 | 0/TBD | Not started | - |
+| 15. Report Viewer & Knowledge Graph | v2.0 | 0/TBD | Not started | - |
+| 16. Feature Completion & Deployment | v2.0 | 0/TBD | Not started | - |
