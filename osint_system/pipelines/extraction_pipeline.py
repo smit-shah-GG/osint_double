@@ -66,7 +66,11 @@ class ExtractionPipeline:
         batch_size: Number of articles to process in each batch
     """
 
-    DEFAULT_BATCH_SIZE = 10
+    DEFAULT_BATCH_SIZE = 5
+    # Max concurrent Gemini API calls. Respects Tier 1 rate limits (20 RPM)
+    # while enabling parallelism. Each call takes ~60s, so 5 concurrent
+    # stays well under the RPM cap.
+    MAX_CONCURRENT_EXTRACTIONS = 5
 
     def __init__(
         self,
@@ -192,20 +196,30 @@ class ExtractionPipeline:
             f"Processing {len(articles)} articles for {investigation_id}"
         )
 
-        # Process articles in batches
+        # Process all articles concurrently with semaphore-controlled parallelism
         all_facts: List[Dict[str, Any]] = []
+        sem = asyncio.Semaphore(self.MAX_CONCURRENT_EXTRACTIONS)
+        completed = 0
 
-        for batch_start in range(0, len(articles), self.batch_size):
-            batch_end = min(batch_start + self.batch_size, len(articles))
-            batch = articles[batch_start:batch_end]
+        async def _extract_one(article: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+            nonlocal completed
+            async with sem:
+                content = self._article_to_content(article, investigation_id)
+                result = await self._extract_with_error_handling(content)
+                completed += 1
+                if completed % 10 == 0:
+                    self.logger.info(f"Progress: {completed}/{len(articles)} articles")
+                return result
 
-            self.logger.debug(
-                f"Processing batch {batch_start//self.batch_size + 1}: "
-                f"articles {batch_start+1}-{batch_end}"
-            )
+        tasks = [_extract_one(article) for article in articles]
+        results = await asyncio.gather(*tasks)
 
-            batch_facts = await self._process_batch(batch, investigation_id)
-            all_facts.extend(batch_facts)
+        for facts in results:
+            if facts is not None:
+                all_facts.extend(facts)
+                self.stats.articles_processed += 1
+            else:
+                self.stats.articles_failed += 1
 
         self.stats.facts_extracted = len(all_facts)
 
@@ -441,7 +455,7 @@ class ExtractionPipeline:
 
         return {
             "text": full_text,
-            "source_id": article.get("url", f"article-{investigation_id}"),
+            "source_id": article.get("url") or f"article-{investigation_id}",
             "source_type": source_type,
             "publication_date": pub_date,
             "metadata": {

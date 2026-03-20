@@ -103,8 +103,8 @@ class TestAgentInitialization:
     def test_initialization_defaults(self, agent):
         """Agent initializes with correct defaults."""
         assert agent.name == "FactExtractionAgent"
-        assert agent.model_name == "gemini-1.5-flash"
-        assert agent.chunk_size == 12000
+        assert agent.model_name == "gemini-3.1-flash-lite-preview"
+        assert agent.chunk_size == 40000
         assert agent.min_confidence == 0.0
 
     def test_initialization_custom_values(self):
@@ -504,7 +504,7 @@ class TestMockGeminiIntegration:
     async def test_extraction_with_mock_response(self, mock_gemini_response):
         """Full extraction flow with mocked Gemini."""
         mock_client = MagicMock()
-        mock_client.models.generate_content.return_value = MagicMock(text=mock_gemini_response)
+        mock_client.aio.models.generate_content = AsyncMock(return_value=MagicMock(text=mock_gemini_response))
 
         agent = FactExtractionAgent(gemini_client=mock_client)
 
@@ -531,7 +531,7 @@ class TestMockGeminiIntegration:
     async def test_denial_extraction_with_mock(self, denial_response):
         """Denial assertion extraction with mocked Gemini."""
         mock_client = MagicMock()
-        mock_client.models.generate_content.return_value = MagicMock(text=denial_response)
+        mock_client.aio.models.generate_content = AsyncMock(return_value=MagicMock(text=denial_response))
 
         agent = FactExtractionAgent(gemini_client=mock_client)
 
@@ -553,7 +553,7 @@ class TestMockGeminiIntegration:
     async def test_gemini_error_returns_empty(self):
         """Gemini error returns empty list, doesn't raise."""
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = Exception("API Error")
+        mock_client.aio.models.generate_content = AsyncMock(side_effect=Exception("API Error"))
 
         agent = FactExtractionAgent(gemini_client=mock_client)
 
@@ -569,7 +569,7 @@ class TestMockGeminiIntegration:
     async def test_process_method_wraps_sift(self, mock_gemini_response):
         """BaseSifter.process() correctly wraps sift()."""
         mock_client = MagicMock()
-        mock_client.models.generate_content.return_value = MagicMock(text=mock_gemini_response)
+        mock_client.aio.models.generate_content = AsyncMock(return_value=MagicMock(text=mock_gemini_response))
 
         agent = FactExtractionAgent(gemini_client=mock_client)
 

@@ -174,7 +174,7 @@ class TestPipelineInitialization:
         """Pipeline initializes with default settings."""
         pipeline = ExtractionPipeline()
 
-        assert pipeline.batch_size == 10
+        assert pipeline.batch_size == 5
         assert pipeline._article_store is None
         assert pipeline._extraction_agent is None
         assert pipeline._consolidator is None
@@ -682,7 +682,7 @@ class TestPipelineStatus:
         pipeline = ExtractionPipeline()
         status = pipeline.get_pipeline_status()
 
-        assert status["batch_size"] == 10
+        assert status["batch_size"] == 5
         assert status["article_store_ready"] is False
         assert status["extraction_agent_ready"] is False
         assert status["consolidator_ready"] is False

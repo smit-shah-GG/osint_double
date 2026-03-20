@@ -261,7 +261,7 @@ Example format:
 Respond with ONLY the JSON array, no other text."""
 
             response = self.gemini_client.models.generate_content(
-                model="gemini-1.5-pro",
+                model="gemini-3-pro-preview",
                 contents=[prompt],
             )
             response_text = response.text.strip()

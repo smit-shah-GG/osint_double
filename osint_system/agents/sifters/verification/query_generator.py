@@ -344,36 +344,62 @@ class QueryGenerator:
 
     # ── Helpers ────────────────────────────────────────────────────────
 
-    def _extract_entity_names(self, fact: dict[str, Any]) -> list[str]:
+    def _extract_entity_names(self, fact: Any) -> list[str]:
         """Extract entity names from fact structure.
 
-        Handles both list-of-dicts and list-of-strings entity formats.
+        Handles ExtractedFact Pydantic models and raw dicts.
         """
-        entities = fact.get("entities", [])
+        if isinstance(fact, dict):
+            entities = fact.get("entities", [])
+        else:
+            entities = getattr(fact, "entities", []) or []
+
         names: list[str] = []
         for entity in entities:
             if isinstance(entity, dict):
-                name = entity.get("canonical_name") or entity.get("text", "")
-                if name:
-                    names.append(name)
+                name = entity.get("canonical_name") or entity.get("canonical") or entity.get("text", "")
             elif isinstance(entity, str):
-                names.append(entity)
+                name = entity
+            else:
+                # Pydantic Entity model
+                name = getattr(entity, "canonical", None) or getattr(entity, "text", "")
+            if name:
+                names.append(name)
         return names
 
-    def _extract_claim_text(self, fact: dict[str, Any]) -> str:
-        """Extract claim text from fact structure."""
-        claim = fact.get("claim", {})
-        if isinstance(claim, dict):
-            return claim.get("text", "")
-        elif isinstance(claim, str):
-            return claim
-        return ""
+    def _extract_claim_text(self, fact: Any) -> str:
+        """Extract claim text from fact structure.
 
-    def _extract_temporal_value(self, fact: dict[str, Any]) -> str:
-        """Extract temporal marker value from fact if present."""
-        temporal = fact.get("temporal_markers", [])
-        if temporal and isinstance(temporal, list) and len(temporal) > 0:
-            marker = temporal[0]
-            if isinstance(marker, dict):
-                return marker.get("value", "")
-        return ""
+        Handles ExtractedFact Pydantic models and raw dicts.
+        """
+        if isinstance(fact, dict):
+            claim = fact.get("claim", {})
+            if isinstance(claim, dict):
+                return claim.get("text", "")
+            return str(claim) if claim else ""
+        else:
+            claim = getattr(fact, "claim", None)
+            if claim is None:
+                return ""
+            if isinstance(claim, str):
+                return claim
+            return getattr(claim, "text", "")
+
+    def _extract_temporal_value(self, fact: Any) -> str:
+        """Extract temporal marker value from fact if present.
+
+        Handles ExtractedFact Pydantic models (fact.temporal) and
+        raw dicts (fact["temporal_markers"]).
+        """
+        if isinstance(fact, dict):
+            temporal = fact.get("temporal_markers", [])
+            if temporal and isinstance(temporal, list) and len(temporal) > 0:
+                marker = temporal[0]
+                if isinstance(marker, dict):
+                    return marker.get("value", "")
+            return ""
+        else:
+            temporal = getattr(fact, "temporal", None)
+            if temporal is None:
+                return ""
+            return getattr(temporal, "value", "")

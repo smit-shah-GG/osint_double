@@ -114,6 +114,10 @@ class VerificationAgent:
         # Get priority queue (excludes NOISE-only per Phase 7)
         queue = await self.classification_store.get_priority_queue(investigation_id)
 
+        # Filter to only facts with dubious flags — non-dubious facts have no
+        # queries to generate and would be marked unverifiable instantly
+        queue = [c for c in queue if c.get("dubious_flags")]
+
         if not queue:
             self._logger.info("empty_queue", investigation_id=investigation_id)
             return self._empty_stats(investigation_id)

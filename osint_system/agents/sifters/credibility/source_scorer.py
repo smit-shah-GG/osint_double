@@ -152,12 +152,12 @@ class SourceCredibilityScorer:
         Returns:
             SourceScore with all components
         """
-        source_id = provenance.get("source_id", "unknown")
+        source_id = provenance.get("source_id") or "unknown"
 
         # 1. Source credibility (baseline lookup)
         source_cred = self._get_source_credibility(
             source_id,
-            provenance.get("source_type", "unknown"),
+            provenance.get("source_type") or "unknown",
         )
 
         # 2. Proximity (exponential decay with hop count)
@@ -206,6 +206,10 @@ class SourceCredibilityScorer:
         Returns:
             Credibility score 0.0-1.0
         """
+        # Guard against None (dict.get returns None when key exists with None value)
+        if not source_id:
+            return self.type_defaults.get("unknown", 0.3)
+
         # Try exact match
         source_lower = source_id.lower()
         if source_lower in self.baselines:
@@ -273,6 +277,9 @@ class SourceCredibilityScorer:
         Returns:
             Baseline key if found, None otherwise
         """
+        if not source_id:
+            return None
+
         source_lower = source_id.lower()
         if source_lower in self.baselines:
             return source_lower
@@ -346,8 +353,8 @@ class SourceCredibilityScorer:
         scores["temporal_precision"] = temporal_factor * PRECISION_WEIGHTS.get("temporal_precision", 0.3)
 
         # Quote factor
-        quote = provenance.get("quote", "")
-        attribution_phrase = provenance.get("attribution_phrase", "")
+        quote = provenance.get("quote") or ""
+        attribution_phrase = provenance.get("attribution_phrase") or ""
         has_direct_quote = bool(quote) and (
             '"' in quote or "'" in quote or
             "said" in attribution_phrase.lower()

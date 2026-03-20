@@ -180,11 +180,40 @@ def test_gemini(
 
 
 @app.command()
+def investigate(
+    objective: str = typer.Argument(..., help="Investigation objective"),
+) -> None:
+    """
+    Run a full OSINT investigation pipeline.
+
+    Executes: Crawl → Extract → Classify → Verify → Graph → Analyze → Report.
+    """
+    from osint_system.runner import InvestigationRunner
+
+    runner = InvestigationRunner(objective)
+    asyncio.run(runner.run())
+
+
+@app.command()
+def dashboard(
+    host: str = typer.Option("127.0.0.1", help="Bind address"),
+    port: int = typer.Option(8080, help="Bind port"),
+) -> None:
+    """Launch the OSINT dashboard web interface."""
+    from osint_system.dashboard import create_app
+
+    import uvicorn
+
+    dash_app = create_app()
+    console.print(f"Dashboard: http://{host}:{port}")
+    uvicorn.run(dash_app, host=host, port=port)
+
+
+@app.command()
 def version() -> None:
     """Display version information."""
     console.print("[bold]OSINT Intelligence System[/bold]")
-    console.print("Version: 0.1.0-alpha")
-    console.print("Phase: Foundation & Environment Setup")
+    console.print("Version: 1.0.0")
 
 
 if __name__ == "__main__":

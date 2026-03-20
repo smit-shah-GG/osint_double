@@ -118,6 +118,10 @@ class ReportStore:
         self._reports: dict[str, list[ReportRecord]] = {}
         self._lock = asyncio.Lock()
 
+        # Load from persistence if available
+        if persistence_path:
+            self._load_from_file()
+
         logger.info(
             "report_store.initialized",
             output_dir=output_dir,
@@ -196,6 +200,44 @@ class ReportStore:
             "report_store.persisted",
             path=self.persistence_path,
         )
+
+    def _load_from_file(self) -> None:
+        """Load report metadata from JSON persistence file.
+
+        Records are loaded without markdown_content (excluded during persist).
+        The get_latest() method hydrates markdown from disk on access.
+        """
+        path = Path(self.persistence_path)  # type: ignore[arg-type]
+        if not path.exists():
+            return
+
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            for inv_id, records in data.items():
+                self._reports[inv_id] = []
+                for raw in records:
+                    try:
+                        record = ReportRecord(
+                            investigation_id=raw.get("investigation_id", inv_id),
+                            version=raw.get("version", 1),
+                            content_hash=raw.get("content_hash", ""),
+                            markdown_content="",  # Hydrated on access
+                            markdown_path=raw.get("markdown_path"),
+                            pdf_path=raw.get("pdf_path"),
+                            generated_at=raw.get("generated_at", ""),
+                            synthesis_summary=raw.get("synthesis_summary", {}),
+                        )
+                        self._reports[inv_id].append(record)
+                    except Exception as exc:
+                        logger.warning("report_record_load_failed", error=str(exc))
+
+            logger.info(
+                "report_store.loaded",
+                path=str(path),
+                investigations=len(self._reports),
+            )
+        except Exception as exc:
+            logger.error("report_store.load_failed", error=str(exc))
 
     async def save_report(
         self,
@@ -276,6 +318,9 @@ class ReportStore:
     ) -> ReportRecord | None:
         """Return the most recent report version for an investigation.
 
+        If markdown_content was excluded during persistence, attempts to
+        hydrate it from the report file on disk.
+
         Args:
             investigation_id: Investigation scope identifier.
 
@@ -284,7 +329,37 @@ class ReportStore:
         """
         async with self._lock:
             versions = self._reports.get(investigation_id, [])
-            return versions[-1] if versions else None
+            if not versions:
+                return None
+
+            record = versions[-1]
+
+            # Hydrate markdown from disk if stripped during persistence
+            if not record.markdown_content:
+                record.markdown_content = self._load_markdown_from_disk(
+                    investigation_id, record
+                )
+
+            return record
+
+    def _load_markdown_from_disk(
+        self, investigation_id: str, record: ReportRecord
+    ) -> str:
+        """Try to load markdown content from the report file on disk."""
+        from pathlib import Path
+
+        # Try markdown_path from record
+        if record.markdown_path:
+            p = Path(record.markdown_path)
+            if p.exists():
+                return p.read_text(encoding="utf-8")
+
+        # Try standard report location: data/reports/<inv_id>.md
+        standard = Path("data") / "reports" / f"{investigation_id}.md"
+        if standard.exists():
+            return standard.read_text(encoding="utf-8")
+
+        return ""
 
     async def get_version(
         self, investigation_id: str, version: int

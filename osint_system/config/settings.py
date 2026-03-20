@@ -28,12 +28,12 @@ class Settings(BaseSettings):
         description="Default Gemini model identifier"
     )
     max_rpm: int = Field(
-        default=15,
-        description="Maximum requests per minute (free tier limit)"
+        default=20,
+        description="Maximum requests per minute (Tier 1 pay-as-you-go)"
     )
     max_tpm: int = Field(
-        default=1_000_000,
-        description="Maximum tokens per minute"
+        default=1_500_000,
+        description="Maximum tokens per minute (Tier 1 pay-as-you-go)"
     )
     log_level: str = Field(
         default="INFO",
@@ -68,6 +68,7 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "extra": "ignore",
     }
 
 

@@ -213,7 +213,7 @@ class ExtractionMetadata(BaseModel):
     """
 
     extracted_at: datetime = Field(default_factory=datetime.utcnow)
-    model_version: str = "gemini-1.5-flash"
+    model_version: str = "gemini-3-pro-preview"
     extraction_type: Literal["explicit", "inferred"] = "explicit"
 
 

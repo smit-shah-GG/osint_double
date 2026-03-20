@@ -309,19 +309,25 @@ class TestContradictions:
         assert "refuted" in contradictions[0].description.lower()
 
     def test_contradictions_from_conflicting_claims(self) -> None:
-        """Statement vs denial about same entity -> contradiction."""
+        """Statement vs denial about same entities (≥2 shared) -> contradiction."""
         analyzer = ContradictionAnalyzer()
         snapshot = InvestigationSnapshot(
             investigation_id="inv-conflict",
             facts=[
                 _make_fact(
-                    "f1", "Putin authorized attack",
-                    [_make_entity("E1", "Putin", canonical="Vladimir Putin")],
+                    "f1", "Putin authorized attack on Kyiv",
+                    [
+                        _make_entity("E1", "Putin", canonical="Vladimir Putin"),
+                        _make_entity("E2", "Kyiv", canonical="Kyiv"),
+                    ],
                     assertion_type="statement",
                 ),
                 _make_fact(
-                    "f2", "Putin denied authorizing attack",
-                    [_make_entity("E1", "Putin", canonical="Vladimir Putin")],
+                    "f2", "Putin denied authorizing attack on Kyiv",
+                    [
+                        _make_entity("E1", "Putin", canonical="Vladimir Putin"),
+                        _make_entity("E2", "Kyiv", canonical="Kyiv"),
+                    ],
                     assertion_type="denial",
                 ),
             ],
@@ -343,13 +349,19 @@ class TestContradictions:
             investigation_id="inv-resolved",
             facts=[
                 _make_fact(
-                    "f1", "Attack confirmed",
-                    [_make_entity("E1", "X", canonical="X")],
+                    "f1", "Attack confirmed on target Y",
+                    [
+                        _make_entity("E1", "X", canonical="X"),
+                        _make_entity("E2", "Y", canonical="Y"),
+                    ],
                     assertion_type="statement",
                 ),
                 _make_fact(
-                    "f2", "Attack denied",
-                    [_make_entity("E1", "X", canonical="X")],
+                    "f2", "Attack on target Y denied",
+                    [
+                        _make_entity("E1", "X", canonical="X"),
+                        _make_entity("E2", "Y", canonical="Y"),
+                    ],
                     assertion_type="denial",
                 ),
             ],

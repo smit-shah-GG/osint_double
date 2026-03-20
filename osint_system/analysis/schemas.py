@@ -545,7 +545,7 @@ class AnalysisSynthesis(BaseModel):
                         "created_at": "2024-03-15T12:00:00Z",
                     },
                     "generated_at": "2024-03-15T13:00:00Z",
-                    "model_version": "gemini-1.5-pro",
+                    "model_version": "gemini-3-pro-preview",
                     "version": 1,
                 }
             ]

@@ -6,6 +6,17 @@ from loguru import logger
 from osint_system.config.settings import settings
 
 
+def _patch_component_label(record: dict) -> None:
+    """Normalize the display label for log records.
+
+    Some modules bind ``component``, others bind ``agent_name``.
+    This patcher ensures a consistent ``_label`` key is always
+    available for the format string.
+    """
+    extra = record["extra"]
+    extra["_label"] = extra.get("component") or extra.get("agent_name", "unknown")
+
+
 def configure_logging() -> None:
     """
     Configure loguru based on environment settings.
@@ -18,6 +29,9 @@ def configure_logging() -> None:
     # Remove default handler
     logger.remove()
 
+    # Normalize component/agent_name into _label for format strings
+    logger.configure(patcher=_patch_component_label)
+
     # Determine if we're in a TTY environment (interactive terminal)
     is_tty = sys.stderr.isatty()
     use_console_format = settings.log_format.lower() == "console"
@@ -26,7 +40,7 @@ def configure_logging() -> None:
         # Development mode: colorized, human-readable
         logger.add(
             sys.stderr,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[component]}</cyan> | <level>{message}</level>",
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[_label]}</cyan> | <level>{message}</level>",
             level=settings.log_level,
             colorize=True,
         )

@@ -15,6 +15,8 @@ structlog
 # Additional dependencies
 aiofiles
 langchain-google-genai  # For Gemini integration with LangChain
+ddgs>=9.0  # DuckDuckGo search for verification (no API key required)
+openai>=1.0  # OpenRouter compatibility layer (optional, for quota bypass)
 
 # Reddit crawler dependencies
 asyncpraw>=7.7.0  # Async Reddit API wrapper

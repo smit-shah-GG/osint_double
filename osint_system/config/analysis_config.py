@@ -6,7 +6,7 @@ with an ``ANALYSIS_`` prefix, following the same from_env() pattern as
 GraphConfig.
 
 Environment variables:
-    ANALYSIS_SYNTHESIS_MODEL: Gemini model for synthesis (default: gemini-1.5-pro)
+    ANALYSIS_SYNTHESIS_MODEL: Gemini model for synthesis (default: gemini-3-pro-preview)
     ANALYSIS_TEMPERATURE: LLM temperature for synthesis (default: 0.3)
     ANALYSIS_MAX_TOKENS_PER_SECTION: Token budget per prompt section (default: 15000)
     ANALYSIS_MAX_KEY_JUDGMENTS: Max key judgments per report (default: 10)
@@ -21,7 +21,7 @@ Usage:
     from osint_system.config.analysis_config import AnalysisConfig
 
     config = AnalysisConfig.from_env()
-    print(config.synthesis_model)  # gemini-1.5-pro
+    print(config.synthesis_model)  # gemini-3-pro-preview
     print(config.temperature)     # 0.3
 """
 
@@ -70,8 +70,8 @@ class AnalysisConfig(BaseModel):
     """
 
     synthesis_model: str = Field(
-        default="gemini-1.5-pro",
-        description="Gemini model for synthesis tasks",
+        default="gemini-3.1-flash-lite-preview",
+        description="Model for synthesis tasks (routed via OpenRouter)",
     )
     max_tokens_per_section: int = Field(
         default=15000,
@@ -205,7 +205,7 @@ class AnalysisConfig(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "synthesis_model": "gemini-1.5-pro",
+                    "synthesis_model": "gemini-3-pro-preview",
                     "max_tokens_per_section": 15000,
                     "temperature": 0.3,
                     "max_key_judgments": 10,

@@ -233,62 +233,68 @@ class ContradictionAnalyzer:
         Returns:
             ContradictionEntry list from entity claim conflicts.
         """
-        # Group facts by entity canonical name
-        entity_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-
+        # Build entity set per fact for overlap checking
+        fact_entities: dict[str, set[str]] = {}
         for fact in facts:
+            fid = fact.get("fact_id", "")
             entities = fact.get("entities", [])
+            canonical_names = set()
             for entity in entities:
                 canonical = entity.get("canonical", entity.get("text", ""))
                 if canonical:
-                    entity_groups[canonical].append(fact)
+                    canonical_names.add(canonical)
+            fact_entities[fid] = canonical_names
+
+        # Separate facts by assertion type
+        denials: list[dict[str, Any]] = []
+        statements: list[dict[str, Any]] = []
+
+        for fact in facts:
+            claim = fact.get("claim", {})
+            atype = (claim.get("assertion_type", "") if isinstance(claim, dict) else "").lower()
+            if atype == "denial":
+                denials.append(fact)
+            elif atype in ("statement", "claim"):
+                statements.append(fact)
 
         entries: list[ContradictionEntry] = []
-        opposing_pairs = {
-            ("statement", "denial"),
-            ("claim", "denial"),
-            ("denial", "statement"),
-            ("denial", "claim"),
-        }
 
-        for entity_name, group_facts in entity_groups.items():
-            if len(group_facts) < 2:
+        # Only compare denials against statements (not all pairs)
+        # Require at least 2 shared entities to avoid false positives from
+        # broad entity co-occurrence (e.g., hundreds of facts mention "Russia")
+        for denial in denials:
+            denial_id = denial.get("fact_id", "")
+            denial_entities = fact_entities.get(denial_id, set())
+            if not denial_entities:
                 continue
 
-            # Check each pair for opposing assertion types
-            for i in range(len(group_facts)):
-                for j in range(i + 1, len(group_facts)):
-                    fact_a = group_facts[i]
-                    fact_b = group_facts[j]
+            for stmt in statements:
+                stmt_id = stmt.get("fact_id", "")
+                stmt_entities = fact_entities.get(stmt_id, set())
 
-                    claim_a = fact_a.get("claim", {})
-                    claim_b = fact_b.get("claim", {})
+                shared = denial_entities & stmt_entities
+                if len(shared) < 2:
+                    continue
 
-                    type_a = (claim_a.get("assertion_type", "") if isinstance(claim_a, dict) else "").lower()
-                    type_b = (claim_b.get("assertion_type", "") if isinstance(claim_b, dict) else "").lower()
+                text_a = self._get_claim_text(denial)
+                text_b = self._get_claim_text(stmt)
 
-                    if (type_a, type_b) in opposing_pairs:
-                        fid_a = fact_a.get("fact_id", "")
-                        fid_b = fact_b.get("fact_id", "")
+                resolution = self._determine_resolution(
+                    denial_id, stmt_id, verif_by_id
+                )
 
-                        text_a = self._get_claim_text(fact_a)
-                        text_b = self._get_claim_text(fact_b)
-
-                        resolution = self._determine_resolution(
-                            fid_a, fid_b, verif_by_id
-                        )
-
-                        entries.append(
-                            ContradictionEntry(
-                                description=(
-                                    f"Conflicting claims about {entity_name}: "
-                                    f"\"{text_a}\" ({type_a}) vs "
-                                    f"\"{text_b}\" ({type_b})"
-                                ),
-                                fact_ids=[fid_a, fid_b],
-                                resolution_status=resolution,
-                            )
-                        )
+                shared_str = ", ".join(sorted(shared)[:3])
+                entries.append(
+                    ContradictionEntry(
+                        description=(
+                            f"Conflicting claims ({shared_str}): "
+                            f"\"{text_a}\" (denial) vs "
+                            f"\"{text_b}\" (statement)"
+                        ),
+                        fact_ids=[denial_id, stmt_id],
+                        resolution_status=resolution,
+                    )
+                )
 
         return entries
 

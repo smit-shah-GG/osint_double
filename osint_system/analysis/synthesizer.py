@@ -80,12 +80,28 @@ class Synthesizer:
 
     @property
     def _client(self) -> Any:
-        """Lazy-init Gemini client from google.genai if not provided."""
+        """Lazy-init LLM client — OpenRouter if configured, else direct Gemini."""
         if self._llm_client is None:
+            import os
+
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if openrouter_key:
+                try:
+                    from osint_system.llm.openrouter_client import OpenRouterClient
+                    self._llm_client = OpenRouterClient(api_key=openrouter_key)
+                    self._log.info(
+                        "openrouter_client_initialized",
+                        model=self._config.synthesis_model,
+                    )
+                    return self._llm_client
+                except Exception as exc:
+                    self._log.warning("openrouter_init_failed", error=str(exc))
+
             try:
                 from google import genai  # type: ignore[import-untyped]
+                from osint_system.config.settings import settings
 
-                self._llm_client = genai.Client()
+                self._llm_client = genai.Client(api_key=settings.gemini_api_key)
                 self._log.info(
                     "gemini_client_initialized",
                     model=self._config.synthesis_model,
@@ -324,16 +340,33 @@ class Synthesizer:
 
         client = self._client
 
-        # google-genai async generation
+        config_dict: dict[str, Any] = {
+            "temperature": self._config.temperature,
+        }
+        if structured:
+            config_dict["response_format"] = "json"
+
         response = await client.aio.models.generate_content(
             model=self._config.synthesis_model,
             contents=prompt,
-            config={
-                "temperature": self._config.temperature,
-            },
+            config=config_dict,
         )
 
-        return response.text
+        text = response.text
+
+        # Strip markdown code fencing that Gemini often wraps around JSON
+        if structured and text:
+            stripped = text.strip()
+            if stripped.startswith("```"):
+                # Remove opening fence (```json or ```)
+                first_newline = stripped.index("\n") if "\n" in stripped else len(stripped)
+                stripped = stripped[first_newline + 1:]
+                # Remove closing fence
+                if stripped.rstrip().endswith("```"):
+                    stripped = stripped.rstrip()[:-3].rstrip()
+                text = stripped
+
+        return text
 
     # ------------------------------------------------------------------
     # Context preparation

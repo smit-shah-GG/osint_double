@@ -237,19 +237,21 @@ class DataAggregator:
                     )
                     type_by_domain.setdefault(domain, evidence.get("source_type", "unknown"))
 
-        # Group facts by source_id
+        # Import source baselines for direct authority lookup
+        from osint_system.config.source_credibility import (
+            SOURCE_BASELINES,
+            DOMAIN_PATTERN_DEFAULTS,
+        )
+
+        # Group facts by source_id (which is typically the article URL)
         source_facts: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for fact in facts:
             provenance = fact.get("provenance") or {}
-            source_id = provenance.get("source_id", "")
-            if not source_id:
-                source_url = provenance.get("source_url", "")
-                source_id = source_url if source_url else "unknown"
+            source_id = provenance.get("source_id") or provenance.get("source_url") or "unknown"
             source_facts[source_id].append(fact)
 
         entries: list[SourceInventoryEntry] = []
         for source_id, grouped_facts in source_facts.items():
-            # Extract domain from source_id or provenance
             domain = ""
             source_type = "unknown"
             authority = 0.5
@@ -258,27 +260,50 @@ class DataAggregator:
             sample = grouped_facts[0]
             prov = sample.get("provenance") or {}
 
-            # Try to get domain from provenance source_url
-            source_url = prov.get("source_url", "")
-            if source_url:
+            # Extract domain from source_id or source_url
+            from urllib.parse import urlparse
+            domain = ""
+            for url_candidate in [source_id, prov.get("source_url", "")]:
+                if not url_candidate:
+                    continue
                 try:
-                    from urllib.parse import urlparse
-                    parsed = urlparse(source_url)
-                    domain = parsed.netloc or source_id
+                    parsed = urlparse(url_candidate)
+                    if parsed.netloc:
+                        domain = parsed.netloc.lower().removeprefix("www.")
+                        break
                 except Exception:
-                    domain = source_id
-            else:
-                domain = source_id
+                    pass
+            # If no URL parsed, treat source_id as domain-like string
+            if not domain:
+                domain = source_id.lower().removeprefix("www.") if source_id else "unknown"
 
-            # Look up authority and type from verification evidence
+            # Authority lookup: verification evidence first, then SOURCE_BASELINES
             if domain in authority_by_domain:
                 authority = authority_by_domain[domain]
+            elif domain in SOURCE_BASELINES:
+                authority = SOURCE_BASELINES[domain]
+            else:
+                # Try domain pattern defaults (.gov, .edu, .org, etc.)
+                for pattern, score in DOMAIN_PATTERN_DEFAULTS.items():
+                    if domain.endswith(pattern):
+                        authority = score
+                        break
+
+            # Source type: verification evidence, then provenance, then infer from domain
             if domain in type_by_domain:
                 source_type = type_by_domain[domain]
-
-            # Get source_type from provenance if not found in verification
+            else:
+                source_type = prov.get("source_type") or "unknown"
             if source_type == "unknown":
-                source_type = prov.get("source_type", "unknown")
+                wire_services = {"reuters.com", "apnews.com", "afp.com"}
+                if domain in wire_services:
+                    source_type = "wire_service"
+                elif domain.endswith((".gov", ".mil")):
+                    source_type = "official_statement"
+                elif domain.endswith(".edu"):
+                    source_type = "academic"
+                else:
+                    source_type = "news_outlet"
 
             # Last accessed from stored_at of the latest fact
             stored_timestamps = [f.get("stored_at", "") for f in grouped_facts if f.get("stored_at")]

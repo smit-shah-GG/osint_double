@@ -115,15 +115,22 @@ class ReportGenerator:
         facts_for_appendix: list[dict[str, Any]] = []
         for fact in synthesis.snapshot.facts:
             fact_id = fact.get("fact_id", "unknown")
-            claim_text = fact.get("claim_text", "")
+            # Claim is stored as {"claim": {"text": "..."}} or {"claim_text": "..."}
+            claim = fact.get("claim", {})
+            if isinstance(claim, dict):
+                claim_text = claim.get("text", "")
+            elif isinstance(claim, str):
+                claim_text = claim
+            else:
+                claim_text = getattr(claim, "text", str(claim)) if claim else ""
             extraction_confidence = fact.get("extraction_confidence")
             provenance = fact.get("provenance", {})
             source_url = ""
             provenance_str = ""
 
             if isinstance(provenance, dict):
-                source_url = provenance.get("source_url", "")
-                provenance_str = provenance.get("source_id", "")
+                source_url = provenance.get("source_url") or provenance.get("source_id", "")
+                provenance_str = provenance.get("source_id") or source_url
             elif isinstance(provenance, str):
                 provenance_str = provenance
 
@@ -144,7 +151,15 @@ class ReportGenerator:
                     names = []
                     for ent in entities:
                         if isinstance(ent, dict):
-                            names.append(ent.get("name", str(ent)))
+                            name = ent.get("canonical") or ent.get("text") or ent.get("name", "")
+                            etype = ent.get("type", "")
+                            # Handle EntityType enum objects
+                            if hasattr(etype, "value"):
+                                etype = etype.value
+                            names.append(f"{name} ({etype})" if etype else name)
+                        elif hasattr(ent, "canonical"):
+                            etype = getattr(ent.type, "value", str(ent.type)) if hasattr(ent, "type") else ""
+                            names.append(f"{ent.canonical or ent.text} ({etype})")
                         else:
                             names.append(str(ent))
                     entity_str = ", ".join(names)

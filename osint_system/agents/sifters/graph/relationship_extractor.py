@@ -361,9 +361,10 @@ class RelationshipExtractor:
             # Import lazily to avoid circular imports and hard dependency on Gemini
             from google import genai
 
-            client = genai.Client()
+            from osint_system.config.settings import settings
+            client = genai.Client(api_key=settings.gemini_api_key)
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3-pro-preview",
                 contents=prompt,
                 config={
                     "temperature": 0.1,

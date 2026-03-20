@@ -41,12 +41,28 @@ SOURCE_BASELINES: Dict[str, float] = {
     "cnn.com": 0.75,
     "foxnews.com": 0.7,
     "aljazeera.com": 0.75,
+    "npr.org": 0.82,
+    "france24.com": 0.75,  # State-funded
+    "dw.com": 0.75,  # State-funded
+    "cnbc.com": 0.78,
+    "bloomberg.com": 0.85,
+    "scmp.com": 0.72,  # South China Morning Post
 
-    # Government sources (domain patterns handled separately)
-    # These are defaults - specific .gov domains may override
+    # Think tanks & analysis
+    "foreignpolicy.com": 0.82,
+    "foreignaffairs.com": 0.85,
+    "warontherocks.com": 0.78,
+    "thediplomat.com": 0.75,
+    "responsiblestatecraft.org": 0.75,
 
-    # Research/academic
-    # .edu domains handled by type default
+    # Defense & OSINT
+    "defenseone.com": 0.78,
+    "breakingdefense.com": 0.75,
+    "defensenews.com": 0.78,
+    "bellingcat.com": 0.80,
+
+    # Google News proxy (many articles come through this)
+    "news.google.com": 0.6,  # Aggregator — actual source credibility varies
 
     # Known lower-credibility sources
     "rt.com": 0.4,  # State-controlled propaganda

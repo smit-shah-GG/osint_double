@@ -70,8 +70,9 @@ def high_quality_fact():
             "claim_clarity": 0.9,
         },
         "provenance": {
-            "source_id": "reuters-article-123",
+            "source_id": "https://www.reuters.com/world/article-123",
             "hop_count": 1,
+            "source_type": "wire_service",
         },
     }
 
@@ -246,9 +247,8 @@ class TestClassifyFact:
         """High-quality fact gets no dubious flags."""
         classification = await agent.classify_fact(high_quality_fact, "test-inv")
 
-        # High claim_clarity (0.9) should not trigger fog
-        # Using shell implementation, claim_clarity becomes credibility
-        assert classification.credibility_score == 0.9
+        # Real scoring: reuters.com (0.9) * proximity 0.7^1 * precision (~0.52)
+        assert classification.credibility_score == pytest.approx(0.3275, abs=0.01)
         assert DubiousFlag.FOG not in classification.dubious_flags
         assert DubiousFlag.NOISE not in classification.dubious_flags
 
@@ -257,8 +257,8 @@ class TestClassifyFact:
         """Low-quality fact gets dubious flags."""
         classification = await agent.classify_fact(low_quality_fact, "test-inv")
 
-        # Low claim_clarity (0.2) triggers fog (< 0.5) and noise (< 0.3)
-        assert classification.credibility_score == 0.2
+        # Real scoring: unknown source (0.3) * proximity 0.7^4 * precision (~0.38)
+        assert classification.credibility_score == pytest.approx(0.0274, abs=0.01)
         assert DubiousFlag.FOG in classification.dubious_flags
         assert DubiousFlag.NOISE in classification.dubious_flags
 
@@ -353,8 +353,8 @@ class TestDubiousFlagDetection:
             credibility_score=0.2,
         )
         assert DubiousFlag.NOISE in flags
-        noise_reason = [r for r in reasoning if r.flag == DubiousFlag.NOISE][0]
-        assert "credibility_score" in noise_reason.reason
+        noise_reason = [r for r in reasoning if r["flag"] == DubiousFlag.NOISE.value][0]
+        assert "credibility_score" in noise_reason["reason"]
 
     def test_detect_fog_low_clarity(self, agent):
         """Fog flag when claim_clarity < 0.5."""
@@ -363,8 +363,8 @@ class TestDubiousFlagDetection:
             credibility_score=0.5,
         )
         assert DubiousFlag.FOG in flags
-        fog_reason = [r for r in reasoning if r.flag == DubiousFlag.FOG][0]
-        assert "claim_clarity" in fog_reason.reason
+        fog_reason = [r for r in reasoning if r["flag"] == DubiousFlag.FOG.value][0]
+        assert "claim_clarity" in fog_reason["reason"]
 
     def test_no_flags_high_quality(self, agent):
         """No flags for high-quality facts."""
@@ -444,8 +444,8 @@ class TestEdgeCases:
 
         classification = await agent.classify_fact(fact, "test-inv")
 
-        # Should use default claim_clarity (0.5) which is at fog threshold
-        assert classification.credibility_score == 0.5
+        # No provenance → scorer returns default 0.3
+        assert classification.credibility_score == pytest.approx(0.3, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_fact_with_none_quality(self, agent):
@@ -457,7 +457,8 @@ class TestEdgeCases:
         }
 
         classification = await agent.classify_fact(fact, "test-inv")
-        assert classification.credibility_score == 0.5
+        # No provenance → scorer returns default 0.3
+        assert classification.credibility_score == pytest.approx(0.3, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_fact_missing_fact_id_uses_unknown(self, agent):

@@ -48,20 +48,20 @@ class FactExtractionAgent(BaseSifter):
     between chunks. It gracefully handles empty/malformed input.
 
     Attributes:
-        model_name: Gemini model to use (default: gemini-1.5-flash)
+        model_name: Gemini model to use (default: gemini-3-pro-preview)
         chunk_size: Max characters per extraction chunk
         min_confidence: Minimum extraction_confidence to keep fact
         gemini_client: Injected Gemini client (or auto-initialized)
     """
 
-    # Chunk size for long documents (leave room for prompt ~4000 tokens)
-    DEFAULT_CHUNK_SIZE = 12000
+    # Chunk size for long documents (~10K tokens, well within Gemini's context window)
+    DEFAULT_CHUNK_SIZE = 40000
     # Minimum text length for meaningful extraction
     MIN_TEXT_LENGTH = 50
 
     def __init__(
         self,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-3.1-flash-lite-preview",
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         min_confidence: float = 0.0,  # Default: include all per CONTEXT.md
         gemini_client: Optional[Any] = None,
@@ -101,7 +101,18 @@ class FactExtractionAgent(BaseSifter):
         return self._gemini_client
 
     def _get_gemini_client(self):
-        """Initialize Gemini client from settings."""
+        """Initialize LLM client — OpenRouter if configured, else direct Gemini."""
+        import os
+
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if openrouter_key:
+            try:
+                from osint_system.llm.openrouter_client import OpenRouterClient
+                self.logger.info("Using OpenRouter backend")
+                return OpenRouterClient(api_key=openrouter_key)
+            except Exception as e:
+                self.logger.warning(f"OpenRouter init failed, falling back to Gemini: {e}")
+
         try:
             from google import genai
             from osint_system.config.settings import settings
@@ -133,7 +144,7 @@ class FactExtractionAgent(BaseSifter):
             Empty list if text too short or extraction fails.
         """
         text = content.get("text", "")
-        source_id = content.get("source_id", "unknown")
+        source_id = content.get("source_id") or "unknown"
         source_type = content.get("source_type", "unknown")
         pub_date = content.get("publication_date", "")
 
@@ -152,6 +163,8 @@ class FactExtractionAgent(BaseSifter):
 
         return await self._extract_single(text, source_id, source_type, pub_date)
 
+    MAX_RETRIES = 2
+
     async def _extract_single(
         self,
         text: str,
@@ -159,43 +172,64 @@ class FactExtractionAgent(BaseSifter):
         source_type: str,
         pub_date: str,
     ) -> list[dict]:
-        """Extract facts from a single text chunk."""
+        """Extract facts from a single text chunk with retry on failure."""
         if not self.gemini_client:
             self.logger.error("Gemini client not available")
             return []
 
-        try:
-            prompt = FACT_EXTRACTION_USER_PROMPT.format(
-                source_id=source_id,
-                source_type=source_type,
-                publication_date=pub_date or "unknown",
-                text=text,
-            )
+        prompt = FACT_EXTRACTION_USER_PROMPT.format(
+            source_id=source_id,
+            source_type=source_type,
+            publication_date=pub_date or "unknown",
+            text=text,
+        )
 
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=[prompt],
-                config={"system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT},
-            )
-            raw_json = self._extract_json_from_response(response.text)
+        for attempt in range(1, self.MAX_RETRIES + 2):  # 1 initial + MAX_RETRIES
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=[prompt],
+                    config={
+                        "system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT,
+                        "temperature": 0.2,
+                        "max_output_tokens": 16384,
+                        "response_format": "json",
+                    },
+                )
+                raw_json = self._extract_json_from_response(response.text)
 
-            if not raw_json:
-                self.logger.warning("No valid JSON in response")
+                if not raw_json:
+                    if attempt <= self.MAX_RETRIES:
+                        self.logger.warning(
+                            f"No valid JSON (attempt {attempt}/{self.MAX_RETRIES + 1}), retrying",
+                            source_id=source_id[:60],
+                        )
+                        continue
+                    self.logger.warning("No valid JSON after retries")
+                    return []
+
+                facts = self._parse_and_validate(raw_json, source_id)
+
+                self.logger.info(
+                    f"Extracted {len(facts)} facts",
+                    source_id=source_id,
+                    text_length=len(text),
+                    attempt=attempt if attempt > 1 else None,
+                )
+
+                return [f.model_dump() for f in facts]
+
+            except Exception as e:
+                if attempt <= self.MAX_RETRIES:
+                    self.logger.warning(
+                        f"Extraction attempt {attempt} failed, retrying: {e}",
+                        source_id=source_id[:60],
+                    )
+                    continue
+                self.logger.error(f"Extraction failed after {attempt} attempts: {e}")
                 return []
 
-            facts = self._parse_and_validate(raw_json, source_id)
-
-            self.logger.info(
-                f"Extracted {len(facts)} facts",
-                source_id=source_id,
-                text_length=len(text),
-            )
-
-            return [f.model_dump() for f in facts]
-
-        except Exception as e:
-            self.logger.error(f"Extraction failed: {e}", exc_info=True)
-            return []
+        return []
 
     async def _extract_chunked(
         self,
@@ -265,40 +299,56 @@ class FactExtractionAgent(BaseSifter):
         if not self.gemini_client:
             return []
 
-        try:
-            # Format previous entities for context (last 10)
-            entity_summary = ", ".join(
-                [
-                    f"{e.get('id')}: {e.get('canonical', e.get('text'))}"
-                    for e in previous_entities[-10:]
-                ]
-            )
+        # Format previous entities for context (last 10)
+        entity_summary = ", ".join(
+            [
+                f"{e.get('id')}: {e.get('canonical', e.get('text'))}"
+                for e in previous_entities[-10:]
+            ]
+        )
 
-            prompt = FACT_EXTRACTION_CHUNK_PROMPT.format(
-                previous_entities=entity_summary or "none",
-                previous_count=previous_count,
-                chunk_num=chunk_num,
-                total_chunks=total_chunks,
-                next_entity_id=next_entity_id,
-                text=text,
-            )
+        prompt = FACT_EXTRACTION_CHUNK_PROMPT.format(
+            previous_entities=entity_summary or "none",
+            previous_count=previous_count,
+            chunk_num=chunk_num,
+            total_chunks=total_chunks,
+            next_entity_id=next_entity_id,
+            text=text,
+        )
 
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=[prompt],
-                config={"system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT},
-            )
-            raw_json = self._extract_json_from_response(response.text)
+        for attempt in range(1, self.MAX_RETRIES + 2):
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=[prompt],
+                    config={
+                        "system_instruction": FACT_EXTRACTION_SYSTEM_PROMPT,
+                        "temperature": 0.2,
+                        "max_output_tokens": 16384,
+                        "response_format": "json",
+                    },
+                )
+                raw_json = self._extract_json_from_response(response.text)
 
-            if not raw_json:
+                if not raw_json:
+                    if attempt <= self.MAX_RETRIES:
+                        self.logger.warning(
+                            f"Chunk {chunk_num}: no valid JSON (attempt {attempt}), retrying",
+                        )
+                        continue
+                    return []
+
+                facts = self._parse_and_validate(raw_json, source_id)
+                return [f.model_dump() for f in facts]
+
+            except Exception as e:
+                if attempt <= self.MAX_RETRIES:
+                    self.logger.warning(f"Chunk {chunk_num} attempt {attempt} failed, retrying: {e}")
+                    continue
+                self.logger.error(f"Chunk extraction failed after retries: {e}")
                 return []
 
-            facts = self._parse_and_validate(raw_json, source_id)
-            return [f.model_dump() for f in facts]
-
-        except Exception as e:
-            self.logger.error(f"Chunk extraction failed: {e}")
-            return []
+        return []
 
     def _split_into_chunks(self, text: str) -> list[str]:
         """
@@ -377,6 +427,14 @@ class FactExtractionAgent(BaseSifter):
         """
         text = response_text.strip()
 
+        # Strip <think>...</think> reasoning blocks (Qwen, DeepSeek R1)
+        text = re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
+        # Also handle unclosed think tags (truncated reasoning)
+        text = re.sub(r"<think>[\s\S]*$", "", text).strip()
+
+        # Strip \n literal escape sequences that some models produce
+        text = text.replace("\\n", "\n")
+
         # Try to find JSON in markdown code block
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
         if json_match:
@@ -397,7 +455,57 @@ class FactExtractionAgent(BaseSifter):
             return None
         except json.JSONDecodeError as e:
             self.logger.warning(f"Failed to parse JSON: {e}")
+
+            # Attempt lightweight repair for common Flash JSON errors
+            repaired = self._repair_json(text)
+            if repaired is not None:
+                self.logger.info(f"JSON repair recovered {len(repaired)} facts")
+                return repaired
             return None
+
+    @staticmethod
+    def _repair_json(text: str) -> Optional[list]:
+        """Attempt to repair malformed JSON from LLM responses.
+
+        Handles:
+        - Truncated responses: find last complete object in array
+        - Missing commas between objects: }{ → },{
+        - Trailing commas before ] or }
+
+        Returns parsed list on success, None on failure.
+        """
+        # Fix missing commas between objects: }{ or }\n{
+        repaired = re.sub(r"\}\s*\{", "},{", text)
+        # Fix trailing commas before closing brackets
+        repaired = re.sub(r",\s*\]", "]", repaired)
+        repaired = re.sub(r",\s*\}", "}", repaired)
+
+        # Try parsing the repaired text
+        try:
+            parsed = json.loads(repaired)
+            if isinstance(parsed, list):
+                return parsed
+            elif isinstance(parsed, dict):
+                return [parsed]
+        except json.JSONDecodeError:
+            pass
+
+        # Truncated response: find last complete object and close the array
+        last_complete = repaired.rfind("}")
+        if last_complete > 0:
+            truncated = repaired[:last_complete + 1]
+            # Ensure it starts with [
+            bracket_start = truncated.find("[")
+            if bracket_start >= 0:
+                truncated = truncated[bracket_start:] + "]"
+                try:
+                    parsed = json.loads(truncated)
+                    if isinstance(parsed, list):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+
+        return None
 
     def _parse_and_validate(
         self,

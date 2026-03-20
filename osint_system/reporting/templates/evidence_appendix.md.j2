@@ -22,13 +22,11 @@ based on source authority, corroboration, and extraction quality.
 ### {{ fact.fact_id }}
 
 - **Claim:** {{ fact.claim_text }}
-- **Extraction Confidence:** {{ fact.extraction_confidence | default("N/A") }}
-- **Verification Status:** {{ fact.verification_status | default("N/A") }}
-- **Final Confidence:** {{ fact.final_confidence | default("N/A") }}
-{% if fact.source_url %}- **Source:** {{ fact.source_url }}{% endif %}
-{% if fact.provenance %}- **Provenance:** {{ fact.provenance }}{% endif %}
-{% if fact.entities %}- **Entities:** {{ fact.entities }}{% endif %}
-
+- **Confidence:** {{ fact.final_confidence | default("N/A") }} (extraction: {{ fact.extraction_confidence | default("N/A") }})
+- **Verification:** {{ fact.verification_status | default("N/A") }}
+- **Source:** {{ fact.source_url or fact.provenance or "N/A" }}
+{% if fact.entities %}- **Entities:** {{ fact.entities }}
+{% endif %}
 {% endfor %}
 
 ---
