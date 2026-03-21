@@ -137,7 +137,13 @@ Plans:
   2. When article fetch fails, the pipeline falls back to RSS entry summary content and still extracts facts from it
   3. Extraction produces valid structured facts regardless of which LLM model in the fallback chain handles the request (no silent drops from thinking tokens, unrecognized enum values, or schema mismatches)
   4. Verification coverage improves: facts that were previously bulk-classified as NOISE are now correctly routed through verification with adversarial query variants, and unverifiable facts are ingested into the knowledge graph with status tagging
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — BrowserPool, stealth, UA rotation, Cloudflare detection
+- [ ] 11-02-PLAN.md — RSS summary fallback, claim_type schema extension, enum normalization
+- [ ] 11-03-PLAN.md — Objective-aware extraction prompt, per-article metrics, warn-once fallback
+- [ ] 11-04-PLAN.md — Adversarial queries, LLM stance fallback, UNVERIFIABLE graph ingestion
 
 ### Phase 12: API Layer & Pipeline Events
 **Goal**: The backend exposes a complete JSON REST API and real-time event stream that the frontend can consume to launch, monitor, and review investigations
@@ -210,7 +216,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
 | 8. Verification Loop | v1.0 | 4/4 | Complete | 2026-02-11 |
 | 9. Knowledge Graph Integration | v1.0 | 5/5 | Complete | 2026-03-13 |
 | 10. Analysis & Reporting Engine | v1.0 | 5/5 | Complete | 2026-03-14 |
-| 11. Crawler Hardening & Pipeline Quality | v2.0 | 0/TBD | Not started | - |
+| 11. Crawler Hardening & Pipeline Quality | v2.0 | 0/4 | In progress | - |
 | 12. API Layer & Pipeline Events | v2.0 | 0/TBD | Not started | - |
 | 13. SQLite Storage Migration | v2.0 | 0/TBD | Not started | - |
 | 14. Next.js Frontend Shell | v2.0 | 0/TBD | Not started | - |
