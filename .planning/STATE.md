@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - [D13-01-01] expire_on_commit=False mandatory for async sessions (prevents MissingGreenlet)
 - [D13-01-02] Dual driver pattern: asyncpg for queries, psycopg for pgvector type registration
 - [D13-01-03] Models Base stub created in Plan 01 so migrations/env.py import resolves immediately
+- [D13-02-01] Hybrid column+JSONB pattern -- queryable fields as columns, nested Pydantic objects as JSONB
+- [D13-02-02] claim_data/verification_data/classification_data JSONB stores full record for zero-loss round-trip
+- [D13-02-04] env.py imports from models package (not base) to trigger all model registration for autogenerate
 - [D13-06-01] Empty/whitespace input returns zero vector -- stores call embed() unconditionally
 - [D13-03-01] Bolt helper functions renamed _neo4j_* to _bolt_* (protocol-agnostic naming)
 - [D13-03-02] Conditional auth (None when empty) in MemgraphAdapter for CE no-auth default
