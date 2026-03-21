@@ -422,6 +422,7 @@ class InvestigationRunner:
                     "title": getattr(entry, "title", ""),
                     "published": getattr(entry, "published", ""),
                     "source": feed.name,
+                    "summary": getattr(entry, "summary", ""),  # RSS entry summary for fallback
                 })
             return entries
 
@@ -593,10 +594,14 @@ class InvestigationRunner:
                 pw_tasks = [_pw_fetch(e) for e in failed_entries]
                 pw_results = await asyncio.gather(*pw_tasks, return_exceptions=True)
                 pw_recovered = 0
-                for r in pw_results:
+                still_failed: list[dict[str, str]] = []
+                for entry, r in zip(failed_entries, pw_results):
                     if isinstance(r, dict):
                         articles.append(r)
                         pw_recovered += 1
+                    else:
+                        still_failed.append(entry)
+                failed_entries = still_failed  # Only entries that failed BOTH trafilatura AND BrowserPool
                 if pw_recovered:
                     self.console.print(
                         f"  Playwright fallback recovered: "
@@ -604,6 +609,54 @@ class InvestigationRunner:
                     )
             finally:
                 await browser_pool.stop()
+
+        # ── RSS summary fallback for remaining failed fetches ──
+        # Entries that failed BOTH trafilatura AND BrowserPool may still have
+        # usable content in the RSS entry summary/description field (1-3 lead
+        # paragraphs). This recovers high-authority sources (Reuters, Bloomberg,
+        # NYT) that block full article fetch behind paywalls/bot detection.
+        if failed_entries:
+            rss_recovered = 0
+            for entry in failed_entries:
+                rss_summary = entry.get("summary", "")
+                if not rss_summary or len(rss_summary.strip()) < 50:
+                    continue
+                # Strip HTML from RSS summary (RSS descriptions often contain HTML fragments)
+                stripped = re.sub(r'<[^>]+>', '', rss_summary).strip()
+                if len(stripped) < 50:
+                    continue
+                domain = urlparse(entry["url"]).netloc.lower().removeprefix("www.")
+                source_type = "news_outlet"
+                authority = 0.6
+                if any(d in domain for d in ("reuters", "apnews")):
+                    source_type, authority = "wire_service", 0.9
+                elif domain.endswith((".gov", ".mil")):
+                    source_type, authority = "official_statement", 0.9
+                elif domain.endswith(".edu"):
+                    source_type, authority = "academic", 0.85
+                elif any(d in domain for d in ("bbc", "nytimes", "theguardian", "washingtonpost")):
+                    authority = 0.8
+                articles.append({
+                    "url": entry["url"],
+                    "title": entry.get("title", ""),
+                    "content": stripped,
+                    "published_date": entry.get("published", ""),
+                    "source": {
+                        "name": domain,
+                        "type": source_type,
+                        "authority_score": authority,
+                    },
+                    "metadata": {
+                        "domain": domain,
+                        "content_source": "rss_summary",
+                        "content_length": len(stripped),
+                        "fetched_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                })
+                rss_recovered += 1
+
+            if rss_recovered:
+                self.console.print(f"  RSS fallback recovered: [green]{rss_recovered}[/green] articles")
 
         if articles:
             stats = await self.article_store.save_articles(
