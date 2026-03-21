@@ -4,6 +4,8 @@ Implements Pattern 1 from RESEARCH.md: try httpx first (10x faster),
 fall back to Playwright for JavaScript-heavy sites.
 
 Uses aiometer for precise rate limiting to prevent overwhelming target servers.
+BrowserPool provides persistent browser + context reuse to prevent OOM
+from per-request browser launches.
 """
 
 from typing import Optional, Any, Dict, List
@@ -21,15 +23,78 @@ from osint_system.agents.crawlers.base_crawler import BaseCrawler
 from osint_system.agents.communication.bus import MessageBus
 
 
-# User agents for rotation to avoid blocking
+# ── Updated User-Agent pool (March 2026) ──────────────────────────
+# Source: useragents.me, geekflare.com/guides/latest-browser-user-agents
 USER_AGENTS: List[str] = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+    # Chrome 134 (Windows) -- ~65% market share
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    # Chrome 134 (macOS)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    # Chrome 134 (Linux)
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    # Firefox 136 (Windows)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) "
+    "Gecko/20100101 Firefox/136.0",
+    # Firefox 136 (macOS)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) "
+    "Gecko/20100101 Firefox/136.0",
+    # Firefox 136 (Linux)
+    "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) "
+    "Gecko/20100101 Firefox/136.0",
+    # Edge 134 (Windows)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0",
+    # Safari 18.3 (macOS)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/18.3 Safari/605.1.15",
 ]
 
-# JavaScript framework indicators in HTML (simple string matching)
+# Googlebot UA for soft paywall bypass (Tier 1 of paywall strategy)
+GOOGLEBOT_UA = (
+    "Mozilla/5.0 (compatible; Googlebot/2.1; "
+    "+http://www.google.com/bot.html)"
+)
+GOOGLE_REFERER = "https://www.google.com/"
+
+
+# ── Cloudflare challenge detection ────────────────────────────────
+
+_CF_CHALLENGE_INDICATORS = [
+    re.compile(r'cf-turnstile', re.IGNORECASE),
+    re.compile(r'challenge-form', re.IGNORECASE),
+    re.compile(r'__cf_chl_f_tk', re.IGNORECASE),
+    re.compile(r'cf-browser-verification', re.IGNORECASE),
+    re.compile(r'cf_clearance', re.IGNORECASE),
+    re.compile(r'Checking your browser', re.IGNORECASE),
+    re.compile(r'Enable JavaScript and cookies to continue', re.IGNORECASE),
+    re.compile(r'ray\s+id', re.IGNORECASE),
+]
+
+
+def is_cloudflare_challenge(html: str) -> bool:
+    """Detect Cloudflare challenge/interstitial pages.
+
+    Returns True if HTML appears to be a Cloudflare challenge page
+    rather than actual article content. Requires 2+ indicators to
+    avoid false positives from incidental matches (e.g., a Cloudflare
+    article discussing Ray IDs).
+
+    Challenge pages are small -- real articles over 50 KB are never
+    challenge pages, so we short-circuit for performance.
+    """
+    if len(html) > 50_000:
+        return False
+
+    hits = sum(1 for p in _CF_CHALLENGE_INDICATORS if p.search(html[:5000]))
+    return hits >= 2
+
+
+# ── JavaScript framework detection ────────────────────────────────
+
+# Simple string matching indicators
 JS_FRAMEWORK_INDICATORS: List[str] = [
     "react",
     "angular",
@@ -62,13 +127,116 @@ JS_FRAMEWORK_PATTERNS: List[re.Pattern] = [
 MIN_CONTENT_LENGTH = 500
 
 
+# ── BrowserPool ───────────────────────────────────────────────────
+
+class BrowserPool:
+    """Persistent browser with rotated contexts for Playwright fetches.
+
+    Maintains a single Chromium process and creates isolated
+    BrowserContexts per request (each ~50-100 MB vs 200-500 MB per
+    browser launch). Contexts are closed in a ``finally`` block to
+    prevent memory leaks on exceptions.
+
+    Concurrency is bounded by an ``asyncio.Semaphore`` -- default 5
+    concurrent contexts matches ``MAX_CONCURRENT_EXTRACTIONS`` in the
+    extraction pipeline and caps memory at ~500 MB.
+
+    Usage::
+
+        pool = BrowserPool(max_contexts=5)
+        await pool.start()
+        try:
+            html = await pool.fetch(url, user_agent, timeout_ms=15000)
+        finally:
+            await pool.stop()
+    """
+
+    def __init__(self, max_contexts: int = 5) -> None:
+        self._max = max_contexts
+        self._semaphore = asyncio.Semaphore(max_contexts)
+        self._playwright: Any = None
+        self._browser: Any = None
+
+    @property
+    def started(self) -> bool:
+        """Whether the browser process has been launched."""
+        return self._browser is not None
+
+    async def start(self) -> None:
+        """Launch Playwright and a persistent Chromium instance."""
+        from playwright.async_api import async_playwright
+
+        self._playwright = await async_playwright().start()
+        self._browser = await self._playwright.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+
+    async def fetch(self, url: str, user_agent: str, timeout_ms: int) -> str:
+        """Fetch a URL in an isolated browser context with stealth.
+
+        Args:
+            url: Target URL.
+            user_agent: User-Agent header for this request.
+            timeout_ms: Navigation timeout in milliseconds.
+
+        Returns:
+            Page HTML, or empty string if the page is a Cloudflare
+            challenge or navigation failed.
+        """
+        from playwright_stealth import Stealth
+
+        async with self._semaphore:
+            context = await self._browser.new_context(
+                user_agent=user_agent,
+                viewport={"width": 1920, "height": 1080},
+                locale="en-US",
+                timezone_id="America/New_York",
+            )
+            try:
+                page = await context.new_page()
+                stealth = Stealth()
+                await stealth.apply_stealth_async(page)
+                await page.goto(url, timeout=timeout_ms, wait_until="networkidle")
+                html = await page.content()
+
+                if is_cloudflare_challenge(html):
+                    logger.warning(
+                        "cloudflare_challenge_detected",
+                        url=url[:120],
+                    )
+                    return ""
+
+                return html
+            except Exception as exc:
+                logger.debug(
+                    "browser_pool_fetch_failed",
+                    url=url[:120],
+                    error=str(exc),
+                )
+                return ""
+            finally:
+                await context.close()
+
+    async def stop(self) -> None:
+        """Shut down the browser process and Playwright server."""
+        if self._browser:
+            await self._browser.close()
+            self._browser = None
+        if self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
+
+
+# ── HybridWebCrawler ──────────────────────────────────────────────
+
 class HybridWebCrawler(BaseCrawler):
     """
     Hybrid web crawler using httpx with optional Playwright fallback.
 
     Tries fast httpx requests first. If JavaScript rendering is detected
     as necessary (based on framework indicators in HTML), falls back to
-    Playwright for full browser rendering.
+    Playwright for full browser rendering via BrowserPool.
 
     Attributes:
         httpx_timeout: Timeout for httpx requests (default 30s)
@@ -110,6 +278,9 @@ class HybridWebCrawler(BaseCrawler):
         # HTTP client (lazy initialization)
         self._client: Optional[httpx.AsyncClient] = None
 
+        # BrowserPool (lazy initialization)
+        self._browser_pool: Optional[BrowserPool] = None
+
         # Metrics
         self.fetch_count = 0
         self.js_render_count = 0
@@ -135,6 +306,13 @@ class HybridWebCrawler(BaseCrawler):
                 follow_redirects=True,
             )
         return self._client
+
+    async def _ensure_browser_pool(self) -> BrowserPool:
+        """Lazy-start the BrowserPool on first use."""
+        if self._browser_pool is None or not self._browser_pool.started:
+            self._browser_pool = BrowserPool(max_contexts=5)
+            await self._browser_pool.start()
+        return self._browser_pool
 
     def _get_user_agent(self) -> str:
         """Get a random user agent for rotation."""
@@ -205,7 +383,10 @@ class HybridWebCrawler(BaseCrawler):
 
     async def _playwright_fetch(self, url: str) -> dict:
         """
-        Fetch URL using Playwright for JavaScript rendering.
+        Fetch URL using Playwright via BrowserPool for JavaScript rendering.
+
+        Uses a persistent browser with per-request context isolation
+        instead of launching a new browser per request (prevents OOM).
 
         Args:
             url: URL to fetch
@@ -223,30 +404,32 @@ class HybridWebCrawler(BaseCrawler):
             }
 
         try:
-            from playwright.async_api import async_playwright
+            pool = await self._ensure_browser_pool()
+            html = await pool.fetch(
+                url,
+                self._get_user_agent(),
+                int(self.playwright_timeout * 1000),
+            )
 
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                page = await browser.new_page(
-                    user_agent=self._get_user_agent(),
-                )
-
-                await page.goto(url, timeout=self.playwright_timeout * 1000)
-                # Wait for network idle to ensure JS has loaded
-                await page.wait_for_load_state("networkidle")
-
-                html = await page.content()
-                await browser.close()
-
-                self.js_render_count += 1
-
+            if not html:
+                # Empty string means Cloudflare challenge or navigation failure
                 return {
-                    "success": True,
-                    "html": html,
+                    "success": False,
+                    "html": "",
                     "url": url,
                     "rendered": True,
-                    "error": None,
+                    "error": "Cloudflare challenge page detected or navigation failed",
                 }
+
+            self.js_render_count += 1
+
+            return {
+                "success": True,
+                "html": html,
+                "url": url,
+                "rendered": True,
+                "error": None,
+            }
 
         except Exception as e:
             error_msg = f"Playwright fetch failed: {e}"
@@ -427,10 +610,13 @@ class HybridWebCrawler(BaseCrawler):
         return list(results)
 
     async def close(self) -> None:
-        """Close the HTTP client."""
+        """Close the HTTP client and BrowserPool."""
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
+        if self._browser_pool and self._browser_pool.started:
+            await self._browser_pool.stop()
+            self._browser_pool = None
 
     # BaseCrawler interface implementation
 

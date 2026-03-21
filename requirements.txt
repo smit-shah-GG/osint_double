@@ -33,6 +33,7 @@ beautifulsoup4>=4.12.0  # HTML parsing helper
 
 # Web scraper dependencies
 playwright>=1.40.0  # Browser automation for JS-heavy sites
+playwright-stealth>=2.0.2  # Anti-bot evasion for Playwright (stealth_async)
 
 # Graph database dependencies
 neo4j>=6.1.0  # Official Neo4j async Python driver
