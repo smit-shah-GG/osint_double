@@ -1,37 +1,42 @@
-"""Versioned report storage with content hashing for diff detection.
+"""Versioned report storage backed by PostgreSQL via SQLAlchemy async sessions.
 
 Manages immutable report snapshots keyed by investigation_id. Each
 save_report call computes a SHA256 content hash; if the hash matches the
 latest version, the save is skipped (content deduplication). Version
-numbers auto-increment per investigation.
+numbers auto-increment per investigation via PostgreSQL queries.
 
-Optional JSON persistence allows report metadata to survive process
-restarts. In-memory storage uses asyncio.Lock for thread safety.
+When an EmbeddingService is provided, save_report embeds the executive
+summary from the synthesis and stores the vector in the ReportModel's
+pgvector Vector(1024) column for cross-investigation similarity search.
+
+File output to output_dir is preserved for backward compatibility with
+the PDF renderer and dashboard. The database is the source of truth
+for report content and versioning; files are artifacts.
 
 Usage:
-    from osint_system.reporting import ReportStore
+    from osint_system.data_management.database import init_db
+    from osint_system.reporting.report_store import ReportStore
 
-    store = ReportStore(output_dir="reports/")
+    session_factory = init_db()
+    store = ReportStore(session_factory=session_factory, output_dir="reports/")
     record = await store.save_report("inv-123", markdown_content)
-    print(record.version, record.content_hash)
-
     latest = await store.get_latest("inv-123")
-    changed = await store.has_changed("inv-123", new_content)
 """
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
-import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from osint_system.analysis.schemas import AnalysisSynthesis
+from osint_system.data_management.models.report import ReportModel
 
 logger = structlog.get_logger(__name__)
 
@@ -84,48 +89,48 @@ class ReportRecord(BaseModel):
 
 
 class ReportStore:
-    """Versioned report storage with content deduplication.
+    """PostgreSQL-backed versioned report storage with content deduplication.
 
-    Stores ReportRecord instances in memory, keyed by investigation_id.
-    Each investigation maintains an ordered list of versions. Content
-    hashing via SHA256 prevents duplicate versions when the Markdown
-    content has not changed.
+    Replaces in-memory dict storage with async SQLAlchemy sessions.
+    Content hashing via SHA256 prevents duplicate versions when the
+    Markdown content has not changed. EmbeddingService optionally
+    generates pgvector embeddings on the executive summary.
 
-    Thread safety is provided by asyncio.Lock. Optional JSON persistence
-    writes report metadata (excluding full Markdown content for size)
-    to a file for process restart recovery.
+    File output to output_dir is preserved for PDF generation and
+    dashboard compatibility. The database is the source of truth.
 
     Attributes:
         output_dir: Base directory for report file output.
-        persistence_path: Optional path for JSON metadata persistence.
     """
 
     def __init__(
         self,
         output_dir: str = "reports/",
-        persistence_path: str | None = None,
+        session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
+        embedding_service: Any = None,
     ) -> None:
         """Initialize the report store.
 
         Args:
             output_dir: Base directory for report file output.
-            persistence_path: Optional path for JSON metadata persistence.
-                If provided, report metadata is written to this file
-                after each save_report call.
+            session_factory: SQLAlchemy async session factory from database.py.
+                If None, falls back to the module-level factory via init_db().
+            embedding_service: Optional EmbeddingService instance for
+                generating pgvector embeddings on executive summaries.
+                If None, embedding column is left as NULL.
         """
-        self.output_dir = output_dir
-        self.persistence_path = persistence_path
-        self._reports: dict[str, list[ReportRecord]] = {}
-        self._lock = asyncio.Lock()
+        if session_factory is None:
+            from osint_system.data_management.database import get_session_factory
+            session_factory = get_session_factory()
 
-        # Load from persistence if available
-        if persistence_path:
-            self._load_from_file()
+        self.output_dir = output_dir
+        self._session_factory = session_factory
+        self._embedding_service = embedding_service
 
         logger.info(
             "report_store.initialized",
             output_dir=output_dir,
-            persistence_path=persistence_path,
+            embedding_enabled=embedding_service is not None,
         )
 
     @staticmethod
@@ -167,77 +172,38 @@ class ReportStore:
             "model_version": synthesis.model_version,
         }
 
-    async def _persist(self) -> None:
-        """Write report metadata to JSON file if persistence_path is configured.
+    def _extract_executive_summary(
+        self, synthesis: AnalysisSynthesis | dict | None
+    ) -> str | None:
+        """Extract executive_summary text from synthesis for embedding.
 
-        Writes a slimmed-down version of each record (without full
-        markdown_content) to avoid excessive file sizes.
+        Args:
+            synthesis: AnalysisSynthesis Pydantic model, dict, or None.
+
+        Returns:
+            Executive summary string, or None if not available.
         """
-        if self.persistence_path is None:
-            return
+        if synthesis is None:
+            return None
 
-        def _write() -> None:
-            path = Path(self.persistence_path)  # type: ignore[arg-type]
-            path.parent.mkdir(parents=True, exist_ok=True)
+        if hasattr(synthesis, "executive_summary"):
+            return synthesis.executive_summary
+        elif isinstance(synthesis, dict):
+            return synthesis.get("executive_summary")
 
-            # Slim records: exclude full markdown_content for file size
-            data: dict[str, list[dict[str, Any]]] = {}
-            for inv_id, records in self._reports.items():
-                data[inv_id] = []
-                for record in records:
-                    slim = record.model_dump(mode="json")
-                    slim.pop("markdown_content", None)
-                    data[inv_id].append(slim)
+        return None
 
-            path.write_text(
-                json.dumps(data, indent=2, default=str),
-                encoding="utf-8",
-            )
+    def _model_to_record(self, model: ReportModel) -> ReportRecord:
+        """Convert a ReportModel ORM instance to a ReportRecord.
 
-        await asyncio.to_thread(_write)
+        Args:
+            model: The ORM model instance.
 
-        logger.debug(
-            "report_store.persisted",
-            path=self.persistence_path,
-        )
-
-    def _load_from_file(self) -> None:
-        """Load report metadata from JSON persistence file.
-
-        Records are loaded without markdown_content (excluded during persist).
-        The get_latest() method hydrates markdown from disk on access.
+        Returns:
+            ReportRecord Pydantic model.
         """
-        path = Path(self.persistence_path)  # type: ignore[arg-type]
-        if not path.exists():
-            return
-
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            for inv_id, records in data.items():
-                self._reports[inv_id] = []
-                for raw in records:
-                    try:
-                        record = ReportRecord(
-                            investigation_id=raw.get("investigation_id", inv_id),
-                            version=raw.get("version", 1),
-                            content_hash=raw.get("content_hash", ""),
-                            markdown_content="",  # Hydrated on access
-                            markdown_path=raw.get("markdown_path"),
-                            pdf_path=raw.get("pdf_path"),
-                            generated_at=raw.get("generated_at", ""),
-                            synthesis_summary=raw.get("synthesis_summary", {}),
-                        )
-                        self._reports[inv_id].append(record)
-                    except Exception as exc:
-                        logger.warning("report_record_load_failed", error=str(exc))
-
-            logger.info(
-                "report_store.loaded",
-                path=str(path),
-                investigations=len(self._reports),
-            )
-        except Exception as exc:
-            logger.error("report_store.load_failed", error=str(exc))
+        data = model.to_dict()
+        return ReportRecord.model_validate(data)
 
     async def save_report(
         self,
@@ -254,6 +220,10 @@ class ReportStore:
         save is skipped and the existing record is returned. Otherwise,
         a new version is created with an incremented version number.
 
+        When an EmbeddingService is configured and synthesis contains an
+        executive_summary, the summary is embedded as a 1024-dim vector
+        and stored in the ReportModel's pgvector column.
+
         Args:
             investigation_id: Investigation scope identifier.
             markdown_content: Full Markdown report source.
@@ -266,40 +236,52 @@ class ReportStore:
         """
         content_hash = self._compute_hash(markdown_content)
 
-        async with self._lock:
-            versions = self._reports.get(investigation_id, [])
+        async with self._session_factory() as session:
+            # Check for content deduplication: get latest version
+            latest_result = await session.execute(
+                select(ReportModel)
+                .where(ReportModel.investigation_id == investigation_id)
+                .order_by(ReportModel.version.desc())
+                .limit(1)
+            )
+            latest_model = latest_result.scalar_one_or_none()
 
-            # Check for content deduplication
-            if versions:
-                latest = versions[-1]
-                if latest.content_hash == content_hash:
-                    logger.info(
-                        "report_store.skipped_unchanged",
-                        investigation_id=investigation_id,
-                        version=latest.version,
-                        content_hash=content_hash[:12],
-                    )
-                    return latest
+            if latest_model is not None and latest_model.content_hash == content_hash:
+                logger.info(
+                    "report_store.skipped_unchanged",
+                    investigation_id=investigation_id,
+                    version=latest_model.version,
+                    content_hash=content_hash[:12],
+                )
+                return self._model_to_record(latest_model)
 
             # Determine next version number
-            next_version = (versions[-1].version + 1) if versions else 1
+            next_version = (latest_model.version + 1) if latest_model else 1
 
             # Extract synthesis summary
             summary = self._extract_synthesis_summary(synthesis)
 
-            record = ReportRecord(
+            # Build the ORM model
+            model = ReportModel(
                 investigation_id=investigation_id,
                 version=next_version,
                 content_hash=content_hash,
                 markdown_content=markdown_content,
                 markdown_path=markdown_path,
                 pdf_path=pdf_path,
+                generated_at=datetime.now(timezone.utc),
                 synthesis_summary=summary,
             )
 
-            if investigation_id not in self._reports:
-                self._reports[investigation_id] = []
-            self._reports[investigation_id].append(record)
+            # Generate embedding from executive summary if service available
+            if self._embedding_service is not None:
+                exec_summary = self._extract_executive_summary(synthesis)
+                if exec_summary:
+                    embedding = await self._embedding_service.embed(exec_summary)
+                    model.embedding = embedding
+
+            session.add(model)
+            await session.commit()
 
             logger.info(
                 "report_store.saved",
@@ -308,18 +290,15 @@ class ReportStore:
                 content_hash=content_hash[:12],
             )
 
-        # Persist outside the lock to avoid holding it during I/O
-        await self._persist()
-
-        return record
+            return self._model_to_record(model)
 
     async def get_latest(
         self, investigation_id: str
     ) -> ReportRecord | None:
         """Return the most recent report version for an investigation.
 
-        If markdown_content was excluded during persistence, attempts to
-        hydrate it from the report file on disk.
+        If markdown_content is empty (should not happen with PostgreSQL
+        backend), attempts to hydrate from disk.
 
         Args:
             investigation_id: Investigation scope identifier.
@@ -327,14 +306,20 @@ class ReportStore:
         Returns:
             The latest ReportRecord, or None if no reports exist.
         """
-        async with self._lock:
-            versions = self._reports.get(investigation_id, [])
-            if not versions:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ReportModel)
+                .where(ReportModel.investigation_id == investigation_id)
+                .order_by(ReportModel.version.desc())
+                .limit(1)
+            )
+            model = result.scalar_one_or_none()
+            if model is None:
                 return None
 
-            record = versions[-1]
+            record = self._model_to_record(model)
 
-            # Hydrate markdown from disk if stripped during persistence
+            # Hydrate markdown from disk if empty (edge case for persistence compat)
             if not record.markdown_content:
                 record.markdown_content = self._load_markdown_from_disk(
                     investigation_id, record
@@ -346,8 +331,6 @@ class ReportStore:
         self, investigation_id: str, record: ReportRecord
     ) -> str:
         """Try to load markdown content from the report file on disk."""
-        from pathlib import Path
-
         # Try markdown_path from record
         if record.markdown_path:
             p = Path(record.markdown_path)
@@ -373,12 +356,17 @@ class ReportStore:
         Returns:
             The ReportRecord for that version, or None if not found.
         """
-        async with self._lock:
-            versions = self._reports.get(investigation_id, [])
-            for record in versions:
-                if record.version == version:
-                    return record
-            return None
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ReportModel).where(
+                    ReportModel.investigation_id == investigation_id,
+                    ReportModel.version == version,
+                )
+            )
+            model = result.scalar_one_or_none()
+            if model is None:
+                return None
+            return self._model_to_record(model)
 
     async def list_versions(
         self, investigation_id: str
@@ -391,8 +379,14 @@ class ReportStore:
         Returns:
             List of ReportRecords ordered by version number (ascending).
         """
-        async with self._lock:
-            return list(self._reports.get(investigation_id, []))
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ReportModel)
+                .where(ReportModel.investigation_id == investigation_id)
+                .order_by(ReportModel.version.asc())
+            )
+            models = result.scalars().all()
+            return [self._model_to_record(m) for m in models]
 
     async def has_changed(
         self, investigation_id: str, markdown_content: str
@@ -411,11 +405,17 @@ class ReportStore:
         """
         content_hash = self._compute_hash(markdown_content)
 
-        async with self._lock:
-            versions = self._reports.get(investigation_id, [])
-            if not versions:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ReportModel.content_hash)
+                .where(ReportModel.investigation_id == investigation_id)
+                .order_by(ReportModel.version.desc())
+                .limit(1)
+            )
+            latest_hash = result.scalar_one_or_none()
+            if latest_hash is None:
                 return True
-            return versions[-1].content_hash != content_hash
+            return latest_hash != content_hash
 
     async def list_investigations(self) -> list[dict[str, Any]]:
         """Return summary of all investigations with report metadata.
@@ -427,20 +427,51 @@ class ReportStore:
             List of dicts with investigation_id, report_count,
             latest_version, latest_generated_at, and latest_confidence.
         """
-        async with self._lock:
-            result: list[dict[str, Any]] = []
-            for inv_id, versions in self._reports.items():
-                latest = versions[-1] if versions else None
-                entry: dict[str, Any] = {
-                    "investigation_id": inv_id,
-                    "report_count": len(versions),
-                    "latest_version": latest.version if latest else 0,
-                    "latest_generated_at": (
-                        latest.generated_at.isoformat() if latest else None
-                    ),
-                    "latest_confidence": latest.synthesis_summary.get(
-                        "overall_confidence_level", "N/A"
-                    ) if latest else "N/A",
-                }
-                result.append(entry)
-            return result
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ReportModel).order_by(
+                    ReportModel.investigation_id,
+                    ReportModel.version.asc(),
+                )
+            )
+            models = result.scalars().all()
+
+        # Group by investigation_id
+        inv_map: dict[str, list[ReportModel]] = {}
+        for model in models:
+            inv_id = model.investigation_id
+            if inv_id not in inv_map:
+                inv_map[inv_id] = []
+            inv_map[inv_id].append(model)
+
+        result_list: list[dict[str, Any]] = []
+        for inv_id, versions in inv_map.items():
+            latest = versions[-1]
+            summary = latest.synthesis_summary or {}
+            entry: dict[str, Any] = {
+                "investigation_id": inv_id,
+                "report_count": len(versions),
+                "latest_version": latest.version,
+                "latest_generated_at": (
+                    latest.generated_at.isoformat()
+                    if latest.generated_at
+                    else None
+                ),
+                "latest_confidence": summary.get(
+                    "overall_confidence_level", "N/A"
+                ),
+            }
+            result_list.append(entry)
+        return result_list
+
+    async def get_report_count(self) -> int:
+        """Get count of distinct investigations with reports.
+
+        Returns:
+            Number of distinct investigation_ids with at least one report.
+        """
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(func.count(func.distinct(ReportModel.investigation_id)))
+            )
+            return result.scalar_one()
