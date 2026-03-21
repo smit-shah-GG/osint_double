@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 11 of 17 (Crawler Hardening & Pipeline Quality)
 Plan: 4 of 4
-Status: Phase 11 plans 1 and 4 complete, plans 2 and 3 remaining
-Last activity: 2026-03-21 — Completed 11-04-PLAN.md (adversarial queries, LLM stance fallback, UNVERIFIABLE ingestion)
+Status: Phase 11 plans 1, 2, and 4 complete, plan 3 remaining
+Last activity: 2026-03-21 — Completed 11-02-PLAN.md (RSS fallback, statement claim_type, enum normalization)
 
-Progress: [██████████░░░░░░░░░░] 47/TBD plans (v1.0 complete, v2.0: 2/4 Phase 11 plans done)
+Progress: [██████████░░░░░░░░░░] 48/TBD plans (v1.0 complete, v2.0: 3/4 Phase 11 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [██████████░░░░░░░░░░] 47/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 2
-- Average duration: 5.3 min
-- Total execution time: 10.6 min
+- Total plans completed: 3
+- Average duration: 4.2 min
+- Total execution time: 12.6 min
 
 ## Accumulated Context
 
@@ -51,11 +51,11 @@ None.
 ### Blockers/Concerns
 
 - ~~Playwright BrowserPool must replace per-request browser launches (OOM risk, CRITICAL)~~ RESOLVED in 11-01
-- LLM fallback chain produces malformed JSON (thinking tokens, enum mismatches)
+- ~~LLM fallback chain produces malformed JSON (thinking tokens, enum mismatches)~~ PARTIALLY RESOLVED in 11-02 (enum normalization added; JSON repair already existed)
 - Gemini 3.1 Flash Lite low fact yield (~4/article) — model selection still unresolved
 
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Completed 11-04-PLAN.md
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
