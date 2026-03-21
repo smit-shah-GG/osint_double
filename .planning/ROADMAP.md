@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Core Pipeline** - Phases 1-10 (shipped 2026-03-14)
-- 🚧 **v2.0 Production Hardening & Frontend** - Phases 11-16 (in progress)
+- 🚧 **v2.0 Production Hardening & Frontend** - Phases 11-17 (in progress)
 
 ## Phases
 
@@ -119,12 +119,13 @@ Plans:
 
 **Milestone Goal:** Harden the pipeline for reliable unattended operation, build a production-quality Next.js frontend, and prepare for deployment.
 
-- [ ] **Phase 11: Crawler Hardening & Pipeline Quality** - Fix crawler fragility, extraction drops, verification coverage gaps
+- [x] **Phase 11: Crawler Hardening & Pipeline Quality** - Fix crawler fragility, extraction drops, verification coverage gaps
 - [ ] **Phase 12: API Layer & Pipeline Events** - REST API endpoints, event bus, SSE streaming for frontend consumption
 - [ ] **Phase 13: SQLite Storage Migration** - Replace in-memory+JSON stores with SQLAlchemy+SQLite persistence
 - [ ] **Phase 14: Next.js Frontend Shell** - Monorepo setup, App Router, investigation launch and live progress
 - [ ] **Phase 15: Report Viewer & Knowledge Graph** - Analytical report display, fact drill-down, interactive graph visualization
 - [ ] **Phase 16: Feature Completion & Deployment** - Source management, configuration profiles, cost tracking, Docker deployment
+- [ ] **Phase 17: Crawler Agent Integration** - Wire v1.0 crawler cohort into InvestigationRunner, replacing inline fetch with agent orchestration
 
 ## Phase Details
 
@@ -137,13 +138,13 @@ Plans:
   2. When article fetch fails, the pipeline falls back to RSS entry summary content and still extracts facts from it
   3. Extraction produces valid structured facts regardless of which LLM model in the fallback chain handles the request (no silent drops from thinking tokens, unrecognized enum values, or schema mismatches)
   4. Verification coverage improves: facts that were previously bulk-classified as NOISE are now correctly routed through verification with adversarial query variants, and unverifiable facts are ingested into the knowledge graph with status tagging
-**Plans**: 4 plans
+**Plans**: 4/4 complete
 
 Plans:
-- [ ] 11-01-PLAN.md — BrowserPool, stealth, UA rotation, Cloudflare detection
-- [ ] 11-02-PLAN.md — RSS summary fallback, claim_type schema extension, enum normalization
-- [ ] 11-03-PLAN.md — Objective-aware extraction prompt, per-article metrics, warn-once fallback
-- [ ] 11-04-PLAN.md — Adversarial queries, LLM stance fallback, UNVERIFIABLE graph ingestion
+- [x] 11-01-PLAN.md — BrowserPool, stealth, UA rotation, Cloudflare detection
+- [x] 11-02-PLAN.md — RSS summary fallback, claim_type schema extension, enum normalization
+- [x] 11-03-PLAN.md — Objective-aware extraction prompt, per-article metrics, warn-once fallback
+- [x] 11-04-PLAN.md — Adversarial queries, LLM stance fallback, UNVERIFIABLE graph ingestion
 
 ### Phase 12: API Layer & Pipeline Events
 **Goal**: The backend exposes a complete JSON REST API and real-time event stream that the frontend can consume to launch, monitor, and review investigations
@@ -199,10 +200,21 @@ Plans:
   4. The system deploys as two Docker containers (Python backend + Next.js frontend) via `docker compose up`, with health checks, restart policies, and documented environment variables
 **Plans**: TBD
 
+### Phase 17: Crawler Agent Integration
+**Goal**: InvestigationRunner uses the full v1.0 crawler agent cohort instead of inline RSS+trafilatura, enabling multi-source acquisition with proper coordination
+**Depends on**: Phase 16
+**Requirements**: TBD (define during planning)
+**Success Criteria** (what must be TRUE):
+  1. InvestigationRunner._phase_crawl delegates to NewsfeedAgent orchestrator instead of inline RSS polling + trafilatura fetch
+  2. SocialMediaAgent (Reddit), APICrawler (NewsAPI), and DocumentScraperAgent are activated based on investigation parameters and contribute articles to the pipeline
+  3. The deduplication engine and authority scorer from crawlers/coordination/ operate across all crawler outputs before extraction
+  4. A2A message bus coordinates cross-crawler context (e.g., entities discovered by one crawler inform queries for others)
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
+Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16 → 17
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -216,9 +228,10 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16
 | 8. Verification Loop | v1.0 | 4/4 | Complete | 2026-02-11 |
 | 9. Knowledge Graph Integration | v1.0 | 5/5 | Complete | 2026-03-13 |
 | 10. Analysis & Reporting Engine | v1.0 | 5/5 | Complete | 2026-03-14 |
-| 11. Crawler Hardening & Pipeline Quality | v2.0 | 0/4 | In progress | - |
+| 11. Crawler Hardening & Pipeline Quality | v2.0 | 4/4 | Complete | 2026-03-21 |
 | 12. API Layer & Pipeline Events | v2.0 | 0/TBD | Not started | - |
 | 13. SQLite Storage Migration | v2.0 | 0/TBD | Not started | - |
 | 14. Next.js Frontend Shell | v2.0 | 0/TBD | Not started | - |
 | 15. Report Viewer & Knowledge Graph | v2.0 | 0/TBD | Not started | - |
 | 16. Feature Completion & Deployment | v2.0 | 0/TBD | Not started | - |
+| 17. Crawler Agent Integration | v2.0 | 0/TBD | Not started | - |

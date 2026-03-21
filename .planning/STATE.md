@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 11 -- Crawler Hardening & Pipeline Quality
+**Current focus:** Phase 12 — API Layer & Pipeline Events
 
 ## Current Position
 
-Phase: 11 of 17 (Crawler Hardening & Pipeline Quality)
-Plan: 4 of 4
-Status: Phase 11 complete (all 4 plans done)
-Last activity: 2026-03-21 -- Completed 11-03-PLAN.md (objective-aware prompt, extraction metrics, warn-once fallback, NOISE threshold)
+Phase: 12 of 17 (API Layer & Pipeline Events)
+Plan: —
+Status: Ready to plan
+Last activity: 2026-03-21 — Phase 11 complete and verified (4 plans, 3 waves, 10 requirements)
 
 Progress: [██████████░░░░░░░░░░] 49/TBD plans (v1.0 complete, v2.0: 4/4 Phase 11 plans done)
 
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Completed 11-03-PLAN.md
+Stopped at: Phase 11 complete and verified, ready to plan Phase 12
 Resume file: None

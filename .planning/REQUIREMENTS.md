@@ -9,22 +9,22 @@ Requirements for production hardening and full frontend. Each maps to roadmap ph
 
 ### Crawler Hardening
 
-- [ ] **CRAWL-01**: Rotate realistic browser User-Agent strings per request to reduce bot detection
-- [ ] **CRAWL-02**: Fall back to RSS entry description/summary content when article fetch returns None
-- [ ] **CRAWL-03**: Use Playwright BrowserPool with context reuse for JS-heavy and Cloudflare-protected sites
-- [ ] **CRAWL-04**: Validate fetched content against Cloudflare AI Labyrinth honeypot indicators before extraction
+- [x] **CRAWL-01**: Rotate realistic browser User-Agent strings per request to reduce bot detection
+- [x] **CRAWL-02**: Fall back to RSS entry description/summary content when article fetch returns None
+- [x] **CRAWL-03**: Use Playwright BrowserPool with context reuse for JS-heavy and Cloudflare-protected sites
+- [x] **CRAWL-04**: Validate fetched content against Cloudflare AI Labyrinth honeypot indicators before extraction
 
 ### Extraction Quality
 
-- [ ] **EXTRACT-01**: Accept "statement" as valid claim_type in Pydantic Claim schema (currently silently dropped)
-- [ ] **EXTRACT-02**: Optimize extraction prompt for higher fact yield without sacrificing structure
-- [ ] **EXTRACT-03**: Strip LLM thinking tokens (<think> blocks) and normalize enum values pre-validation
+- [x] **EXTRACT-01**: Accept "statement" as valid claim_type in Pydantic Claim schema (currently silently dropped)
+- [x] **EXTRACT-02**: Optimize extraction prompt for higher fact yield without sacrificing structure
+- [x] **EXTRACT-03**: Strip LLM thinking tokens (<think> blocks) and normalize enum values pre-validation
 
 ### Verification Coverage
 
-- [ ] **VERIFY-01**: Tune NOISE classification threshold to reduce false-positive NOISE flags on valid facts
-- [ ] **VERIFY-02**: Add adversarial/refutation query variants to QueryGenerator (denied, disproven, false)
-- [ ] **VERIFY-03**: Add UNVERIFIABLE to GraphIngestor _INGESTIBLE_STATUSES with status tagging
+- [x] **VERIFY-01**: Tune NOISE classification threshold to reduce false-positive NOISE flags on valid facts
+- [x] **VERIFY-02**: Add adversarial/refutation query variants to QueryGenerator (denied, disproven, false)
+- [x] **VERIFY-03**: Add UNVERIFIABLE to GraphIngestor _INGESTIBLE_STATUSES with status tagging
 
 ### API Layer
 
@@ -135,16 +135,16 @@ Deferred beyond v2.0.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRAWL-01 | Phase 11 | Pending |
-| CRAWL-02 | Phase 11 | Pending |
-| CRAWL-03 | Phase 11 | Pending |
-| CRAWL-04 | Phase 11 | Pending |
-| EXTRACT-01 | Phase 11 | Pending |
-| EXTRACT-02 | Phase 11 | Pending |
-| EXTRACT-03 | Phase 11 | Pending |
-| VERIFY-01 | Phase 11 | Pending |
-| VERIFY-02 | Phase 11 | Pending |
-| VERIFY-03 | Phase 11 | Pending |
+| CRAWL-01 | Phase 11 | Complete |
+| CRAWL-02 | Phase 11 | Complete |
+| CRAWL-03 | Phase 11 | Complete |
+| CRAWL-04 | Phase 11 | Complete |
+| EXTRACT-01 | Phase 11 | Complete |
+| EXTRACT-02 | Phase 11 | Complete |
+| EXTRACT-03 | Phase 11 | Complete |
+| VERIFY-01 | Phase 11 | Complete |
+| VERIFY-02 | Phase 11 | Complete |
+| VERIFY-03 | Phase 11 | Complete |
 | API-01 | Phase 12 | Pending |
 | API-02 | Phase 12 | Pending |
 | API-03 | Phase 12 | Pending |
