@@ -40,6 +40,9 @@ from osint_system.agents.crawlers.web_crawler import (
     BrowserPool, is_cloudflare_challenge, USER_AGENTS,
 )
 
+# ── database + embedding ───────────────────────────────────────────
+from osint_system.data_management.database import init_db
+
 # ── stores ──────────────────────────────────────────────────────────
 from osint_system.data_management.article_store import ArticleStore
 from osint_system.data_management.classification_store import ClassificationStore
@@ -186,23 +189,44 @@ class InvestigationRunner:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.console = Console()
 
-        # ── shared stores (persisted to data/<inv_id>/) ──────────────
-        store_dir = self.data_dir / self.investigation_id
-        store_dir.mkdir(parents=True, exist_ok=True)
+        # ── database session factory ─────────────────────────────────
+        # init_db() is idempotent -- returns existing factory if already
+        # initialized (e.g. by API lifespan).
+        session_factory = init_db()
+
+        # ── embedding service (graceful degradation) ─────────────────
+        embedding_service = None
+        try:
+            from osint_system.data_management.embeddings import EmbeddingService
+            embedding_service = EmbeddingService()
+        except ImportError:
+            logger.warning(
+                "sentence-transformers not installed; embeddings disabled"
+            )
+
+        # ── shared stores (PostgreSQL-backed) ────────────────────────
         self.article_store = ArticleStore(
-            persistence_path=str(store_dir / "articles.json"),
+            session_factory=session_factory,
+            embedding_service=embedding_service,
         )
         self.fact_store = FactStore(
-            persistence_path=str(store_dir / "facts.json"),
+            session_factory=session_factory,
+            embedding_service=embedding_service,
         )
         self.classification_store = ClassificationStore(
-            persistence_path=str(store_dir / "classifications.json"),
+            session_factory=session_factory,
         )
         self.verification_store = VerificationStore(
-            persistence_path=str(store_dir / "verifications.json"),
+            session_factory=session_factory,
         )
+
+        # Report file output still goes to disk for PDF renderer / dashboard
+        report_dir = self.data_dir / "reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
         self.report_store = ReportStore(
-            persistence_path=str(store_dir / "reports.json"),
+            session_factory=session_factory,
+            embedding_service=embedding_service,
+            output_dir=str(report_dir),
         )
 
         # ── config ──────────────────────────────────────────────────
@@ -799,9 +823,8 @@ class InvestigationRunner:
             verification_store=self.verification_store,
             classification_store=self.classification_store,
         )
-        # Force NetworkX (no Neo4j dependency)
-        pipeline._config = pipeline.config
-        pipeline._config.use_networkx_fallback = True
+        # Graph backend is determined by GraphConfig.from_env():
+        # Memgraph when available, NetworkX fallback when GRAPH_USE_NETWORKX=true
 
         result = await pipeline.on_verification_complete(
             self.investigation_id,

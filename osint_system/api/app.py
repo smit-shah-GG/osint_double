@@ -45,12 +45,30 @@ from osint_system.api.routes import (
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown logic.
 
-    On shutdown, cancels all active pipeline tasks gracefully.
+    Startup: initializes PostgreSQL connection pool and EmbeddingService.
+    Shutdown: cancels active pipeline tasks, disposes database engine.
     """
-    # Startup: nothing extra needed (state is initialized in create_api_app)
+    from osint_system.data_management.database import close_db, init_db
+
+    # ── Startup ───────────────────────────────────────────────────────
+    session_factory = init_db()
+    app.state.session_factory = session_factory
+
+    # EmbeddingService -- graceful degradation if sentence-transformers
+    # is not installed (CI, lightweight deployments).
+    embedding_service = None
+    try:
+        from osint_system.data_management.embeddings import EmbeddingService
+
+        embedding_service = EmbeddingService()
+    except ImportError:
+        pass
+    app.state.embedding_service = embedding_service
+
     yield
 
-    # Shutdown: cancel active pipeline tasks
+    # ── Shutdown ──────────────────────────────────────────────────────
+    # Cancel active pipeline tasks
     tasks: dict[str, asyncio.Task] = getattr(
         app.state, "active_tasks", {},
     )
@@ -59,6 +77,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         task.cancel()
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
+
+    # Dispose database connection pool
+    await close_db()
 
 
 def create_api_app() -> FastAPI:

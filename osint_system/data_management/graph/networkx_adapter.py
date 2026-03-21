@@ -1,14 +1,14 @@
 """NetworkX GraphAdapter implementation for tests and CI.
 
 In-memory graph backend using ``networkx.MultiDiGraph``. Provides identical
-merge/query semantics to Neo4jAdapter without requiring Docker or a Neo4j
+merge/query semantics to MemgraphAdapter without requiring Docker or a Memgraph
 instance. Manually enforces key-property uniqueness since NetworkX has no
 native constraint mechanism (Pitfall 6 from RESEARCH.md).
 
 This adapter is NOT suitable for production. It is designed for:
 - Unit/integration tests (fast, no infrastructure)
 - CI pipelines (no Docker dependency)
-- Local development when Neo4j is unavailable
+- Local development when Memgraph is unavailable
 
 Usage:
     from osint_system.data_management.graph.networkx_adapter import NetworkXAdapter
@@ -40,10 +40,10 @@ class NetworkXAdapter:
 
     Uses ``nx.MultiDiGraph`` for directed multi-edge support. Maintains a
     ``_node_index`` dict for O(1) key-property uniqueness enforcement,
-    emulating Neo4j's MERGE + uniqueness constraints.
+    emulating Memgraph's MERGE + uniqueness constraints.
 
     Node keys follow the ``{label}:{properties[key_property]}`` convention
-    consistent with Neo4jAdapter.
+    consistent with MemgraphAdapter.
     """
 
     def __init__(self) -> None:
@@ -86,7 +86,7 @@ class NetworkXAdapter:
     ) -> str:
         """MERGE a single node by key property.
 
-        Emulates Neo4j MERGE semantics:
+        Emulates Memgraph MERGE semantics:
         - ON CREATE: add new node with all properties
         - ON MATCH: update existing node's properties
 
@@ -123,7 +123,7 @@ class NetworkXAdapter:
         """Batch MERGE nodes by iterating merge_node.
 
         No performance benefit in NetworkX (all in-memory), but maintains
-        interface parity with Neo4jAdapter's UNWIND pattern.
+        interface parity with MemgraphAdapter's UNWIND pattern.
 
         Returns the count of nodes merged.
         """
@@ -140,16 +140,16 @@ class NetworkXAdapter:
     ) -> None:
         """MERGE a relationship between two nodes.
 
-        Emulates Neo4j relationship MERGE:
+        Emulates Memgraph relationship MERGE:
         - If an edge with the same rel_type exists between from_id and to_id,
           update its properties (ON MATCH).
         - Otherwise, create a new edge (ON CREATE).
 
         Nodes do NOT need to pre-exist: if from_id or to_id is not in the
-        graph, they are created as stub nodes (matching Neo4j MERGE behavior
+        graph, they are created as stub nodes (matching Memgraph MERGE behavior
         in the MERGE_RELATIONSHIP template which MERGEs nodes first).
         """
-        # Ensure both nodes exist (stub if necessary, like Neo4j MERGE)
+        # Ensure both nodes exist (stub if necessary, like Memgraph MERGE)
         if from_id not in self._node_index:
             label = from_id.split(":", 1)[0] if ":" in from_id else "Unknown"
             self._graph.add_node(from_id, label=label)
@@ -563,7 +563,7 @@ class NetworkXAdapter:
     async def execute_cypher(
         self, query: str, parameters: dict | None = None
     ) -> list[dict]:
-        """Raise NotImplementedError -- Cypher is Neo4j-specific.
+        """Raise NotImplementedError -- Cypher is Memgraph-specific.
 
         Use high-level query methods instead.
         """

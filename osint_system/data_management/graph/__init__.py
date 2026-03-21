@@ -1,13 +1,11 @@
 """Graph layer package for knowledge graph storage and querying.
 
 Provides the GraphAdapter Protocol, Pydantic graph schemas, EdgeType enum,
-and adapter implementations (Memgraph for production, Neo4j legacy,
-NetworkX for tests/CI).
+and adapter implementations (Memgraph for production, NetworkX for tests/CI).
 
 Primary exports:
 - GraphAdapter: Protocol defining the graph interface
 - MemgraphAdapter: Production graph backend using Memgraph via Bolt protocol
-- Neo4jAdapter: Legacy adapter (preserved until wiring plan 13-07 updates consumers)
 - NetworkXAdapter: In-memory graph backend for tests/CI (no Docker dependency)
 - GraphNode, GraphEdge: Typed node/edge models for query results
 - QueryResult: Container for structured graph query results
@@ -33,7 +31,6 @@ Usage:
 
 from osint_system.data_management.graph.adapter import GraphAdapter
 from osint_system.data_management.graph.memgraph_adapter import MemgraphAdapter
-from osint_system.data_management.graph.neo4j_adapter import Neo4jAdapter
 from osint_system.data_management.graph.networkx_adapter import NetworkXAdapter
 from osint_system.data_management.graph.schema import (
     EdgeType,
@@ -46,7 +43,6 @@ from osint_system.data_management.graph.schema import (
 __all__ = [
     "GraphAdapter",
     "MemgraphAdapter",
-    "Neo4jAdapter",
     "NetworkXAdapter",
     "GraphNode",
     "GraphEdge",

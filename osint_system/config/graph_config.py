@@ -4,8 +4,8 @@ Provides GraphConfig for Memgraph connection settings and graph layer behavior.
 Loads from environment variables with sensible defaults for local development.
 
 This module has zero dependency on the neo4j driver -- it is pure configuration.
-The actual driver is only imported by the adapter implementations
-(memgraph_adapter.py, neo4j_adapter.py).
+The actual driver is only imported by the adapter implementation
+(memgraph_adapter.py).
 
 Environment variables:
     MEMGRAPH_URI: Bolt URI for Memgraph connection (default: bolt://localhost:7687)

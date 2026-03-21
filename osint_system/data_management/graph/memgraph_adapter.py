@@ -13,9 +13,9 @@ Memgraph differences from Neo4j (handled in this adapter and memgraph_queries.py
 - Single database (no ``database_`` parameter in execute_query calls).
 - No TEXT or relationship property indexes.
 
-Consumers to update in wiring plan (13-07):
-    - osint_system/pipeline/graph_pipeline.py (imports Neo4jAdapter, instantiates it)
-    - osint_system/data_management/graph/__init__.py (re-exports Neo4jAdapter)
+Consumers (updated in wiring plan 13-07):
+    - osint_system/pipeline/graph_pipeline.py (imports MemgraphAdapter)
+    - osint_system/data_management/graph/__init__.py (exports MemgraphAdapter)
 
 Usage:
     from osint_system.config.graph_config import GraphConfig
@@ -125,7 +125,7 @@ class MemgraphAdapter:
     parameterized via constants from ``memgraph_queries.py``.
 
     Memgraph CE has a single database -- no ``database_`` parameter is passed
-    to any ``execute_query`` call, unlike Neo4jAdapter.
+    to any ``execute_query`` call.
 
     Args:
         config: GraphConfig with Memgraph connection parameters.

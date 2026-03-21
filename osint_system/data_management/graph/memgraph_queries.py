@@ -1,12 +1,12 @@
 """Centralized Cypher query templates for Memgraph graph operations.
 
 All Cypher queries used by MemgraphAdapter are defined here as named constants.
-Adapted from cypher_queries.py (Neo4j) with the following syntax changes:
+Memgraph-specific syntax differences from standard Cypher:
 
     1. Constraints: ``CREATE CONSTRAINT ON (n:Label) ASSERT n.prop IS UNIQUE;``
-       (not Neo4j's FOR/REQUIRE syntax). No ``IF NOT EXISTS`` -- Memgraph does
+       (not FOR/REQUIRE syntax). No ``IF NOT EXISTS`` -- Memgraph does
        not support it; caller must wrap in try/except.
-    2. Indexes: ``CREATE INDEX ON :Label(prop);`` (not Neo4j's named index syntax).
+    2. Indexes: ``CREATE INDEX ON :Label(prop);`` (not named index syntax).
        Explicit indexes for ALL constrained properties (Memgraph does NOT
        auto-create backing indexes for constraints -- Pitfall 4 from RESEARCH.md).
     3. No TEXT INDEX (Memgraph doesn't support it) -- use label-property index.
@@ -50,7 +50,7 @@ SCHEMA_INIT_QUERIES: list[str] = [
     "CREATE INDEX ON :Entity(name);",
     "CREATE INDEX ON :Fact(temporal_value);",
     # Note: Memgraph does NOT support relationship property indexes.
-    # The Neo4j rel_weight index on CORROBORATES.weight is dropped.
+    # Relationship weight index on CORROBORATES.weight is not available.
     # Note: Memgraph does NOT support TEXT indexes.
     # Entity name search uses standard label-property index above.
 ]
@@ -156,7 +156,7 @@ QUERY_TIMELINE: str = (
 )
 
 # 4. Shortest path between two entities (bounded to 10 hops max).
-# Memgraph BFS syntax replaces Neo4j's shortestPath() function.
+# Memgraph uses built-in BFS traversal syntax for shortest paths.
 # Per RESEARCH.md Pitfall 9: Memgraph uses built-in BFS traversal.
 QUERY_SHORTEST_PATH: str = (
     "MATCH path = "

@@ -101,7 +101,7 @@ class GraphPipeline:
         """Lazy-init graph adapter based on config.
 
         If use_networkx_fallback is True, creates a NetworkXAdapter.
-        Otherwise, creates a Neo4jAdapter (requires Neo4j running).
+        Otherwise, creates a MemgraphAdapter (requires Memgraph running).
 
         Returns:
             Initialized GraphAdapter.
@@ -116,11 +116,11 @@ class GraphPipeline:
 
             self._adapter = NetworkXAdapter()
         else:
-            from osint_system.data_management.graph.neo4j_adapter import (
-                Neo4jAdapter,
+            from osint_system.data_management.graph.memgraph_adapter import (
+                MemgraphAdapter,
             )
 
-            self._adapter = Neo4jAdapter(self.config)
+            self._adapter = MemgraphAdapter(self.config)
 
         return self._adapter
 

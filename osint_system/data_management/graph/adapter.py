@@ -1,6 +1,6 @@
 """GraphAdapter Protocol definition for graph storage abstraction.
 
-Defines the interface that both Neo4j and NetworkX adapters must implement.
+Defines the interface that both Memgraph and NetworkX adapters must implement.
 All consumers depend only on this Protocol, never on a concrete backend.
 
 Per Phase 9 CONTEXT.md decisions:
@@ -15,7 +15,7 @@ Usage:
     from osint_system.data_management.graph.adapter import GraphAdapter
 
     def build_graph(adapter: GraphAdapter) -> None:
-        # Works with Neo4jAdapter or NetworkXAdapter
+        # Works with MemgraphAdapter or NetworkXAdapter
         await adapter.merge_node("Fact", {"id": "f1", "text": "..."})
 """
 
@@ -26,18 +26,18 @@ from osint_system.data_management.graph.schema import QueryResult
 
 @runtime_checkable
 class GraphAdapter(Protocol):
-    """Graph storage abstraction. Neo4j or NetworkX backends.
+    """Graph storage abstraction. Memgraph or NetworkX backends.
 
     All methods are async. Implementations must handle their own connection
     lifecycle (pool creation in __init__, cleanup in close()).
 
     Node IDs follow the format ``{label}:{natural_key}`` for global uniqueness.
     MERGE semantics: if a node/relationship with the key property exists, update
-    its properties; otherwise create it. This mirrors Neo4j MERGE + ON CREATE SET
+    its properties; otherwise create it. This mirrors Cypher MERGE + ON CREATE SET
     + ON MATCH SET behavior.
 
     Batch methods use UNWIND-style ingestion for performance (up to 900x faster
-    than individual transactions on Neo4j). The NetworkX adapter emulates this
+    than individual transactions on Memgraph). The NetworkX adapter emulates this
     with iterative MERGE.
     """
 
@@ -47,14 +47,14 @@ class GraphAdapter(Protocol):
         Idempotent: safe to call on every startup. Uses IF NOT EXISTS for
         all constraint and index creation.
 
-        For Neo4j: creates uniqueness constraints on node key properties
+        For Memgraph: creates uniqueness constraints on node key properties
         (fact_id, entity_id, source_id, investigation_id) and range/text
         indexes for common query patterns.
 
         For NetworkX: no-op (in-memory, no persistent schema).
 
         Raises:
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -64,7 +64,7 @@ class GraphAdapter(Protocol):
         Releases connection pools, flushes pending writes, and closes
         the driver. After calling close(), the adapter must not be reused.
 
-        For Neo4j: closes the AsyncDriver (releases connection pool).
+        For Memgraph: closes the AsyncDriver (releases connection pool).
         For NetworkX: clears the in-memory graph.
         """
         ...
@@ -87,7 +87,7 @@ class GraphAdapter(Protocol):
 
         Raises:
             KeyError: If ``key_property`` is not present in ``properties``.
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -112,7 +112,7 @@ class GraphAdapter(Protocol):
 
         Raises:
             ValueError: If either node does not exist.
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -121,7 +121,7 @@ class GraphAdapter(Protocol):
     ) -> int:
         """Batch MERGE multiple nodes via UNWIND.
 
-        High-performance bulk ingestion. On Neo4j, uses a single UNWIND
+        High-performance bulk ingestion. On Memgraph, uses a single UNWIND
         transaction for up to ``batch_size`` nodes (configured in GraphConfig).
         On NetworkX, iterates and calls merge_node per item.
 
@@ -137,7 +137,7 @@ class GraphAdapter(Protocol):
 
         Raises:
             KeyError: If any node dict is missing ``key_property``.
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -160,7 +160,7 @@ class GraphAdapter(Protocol):
 
         Raises:
             ValueError: If any relationship dict is missing required keys.
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -177,7 +177,7 @@ class GraphAdapter(Protocol):
             True if the node existed and was deleted, False if not found.
 
         Raises:
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...
 
@@ -255,8 +255,8 @@ class GraphAdapter(Protocol):
     ) -> QueryResult:
         """Find the shortest connection path between two entities.
 
-        Uses the graph's native shortest path algorithm (Cypher
-        ``shortestPath()`` on Neo4j, ``nx.shortest_path()`` on NetworkX).
+        Uses the graph's native shortest path algorithm (BFS traversal
+        on Memgraph, ``nx.shortest_path()`` on NetworkX).
         Path length is bounded to prevent unbounded traversal.
 
         Args:
@@ -276,12 +276,12 @@ class GraphAdapter(Protocol):
     ) -> list[dict]:
         """Execute a raw Cypher query (escape hatch).
 
-        Provides direct access to Neo4j's Cypher query language for queries
+        Provides direct access to the Cypher query language for queries
         not covered by the high-level methods. Parameters must use ``$name``
         syntax for injection safety (Pitfall 5 from RESEARCH.md).
 
-        On NetworkX, this raises NotImplementedError since Cypher is a
-        Neo4j-specific query language.
+        On NetworkX, this raises NotImplementedError since Cypher requires
+        a graph database backend (Memgraph).
 
         Args:
             query: Cypher query string with ``$parameter`` placeholders.
@@ -292,6 +292,6 @@ class GraphAdapter(Protocol):
 
         Raises:
             NotImplementedError: On NetworkX adapter (Cypher not supported).
-            ConnectionError: If the database is unreachable (Neo4j only).
+            ConnectionError: If the database is unreachable (Memgraph only).
         """
         ...

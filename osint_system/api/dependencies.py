@@ -1,8 +1,14 @@
 """FastAPI dependency injection helpers for store and service access.
 
-Each function extracts a store or service from ``request.app.state``,
-raising ``AttributeError`` with a clear message if the dependency has
-not been mounted.  Use as FastAPI ``Depends()`` parameters::
+Store dependencies create fresh store instances on each request using
+``session_factory`` and ``embedding_service`` from ``app.state`` (set by
+the lifespan handler in ``app.py``).  This ensures stores always use
+the current database connection pool.
+
+Per-investigation stores exposed via ``investigation_stores`` dict (set by
+``_run_pipeline_with_events``) take precedence for active pipeline runs.
+
+Use as FastAPI ``Depends()`` parameters::
 
     @router.get("/facts")
     async def list_facts(
@@ -53,25 +59,68 @@ def get_registry(request: Request) -> InvestigationRegistry:
 
 
 def get_fact_store(request: Request) -> FactStore:
-    """Return the FactStore from app.state."""
-    return _get_state_attr(request, "fact_store")  # type: ignore[return-value]
+    """Return a FactStore backed by the app-level session factory.
+
+    FactStore requires session_factory (mandatory) and accepts
+    embedding_service (optional) for pgvector embedding on save.
+    """
+    from osint_system.data_management.fact_store import FactStore as _FS
+
+    session_factory = _get_state_attr(request, "session_factory")
+    embedding_service = getattr(request.app.state, "embedding_service", None)
+    return _FS(
+        session_factory=session_factory,  # type: ignore[arg-type]
+        embedding_service=embedding_service,
+    )
 
 
 def get_classification_store(request: Request) -> ClassificationStore:
-    """Return the ClassificationStore from app.state."""
-    return _get_state_attr(request, "classification_store")  # type: ignore[return-value]
+    """Return a ClassificationStore backed by the app-level session factory."""
+    from osint_system.data_management.classification_store import (
+        ClassificationStore as _CS,
+    )
+
+    session_factory = _get_state_attr(request, "session_factory")
+    return _CS(session_factory=session_factory)  # type: ignore[arg-type]
 
 
 def get_verification_store(request: Request) -> VerificationStore:
-    """Return the VerificationStore from app.state."""
-    return _get_state_attr(request, "verification_store")  # type: ignore[return-value]
+    """Return a VerificationStore backed by the app-level session factory."""
+    from osint_system.data_management.verification_store import (
+        VerificationStore as _VS,
+    )
+
+    session_factory = _get_state_attr(request, "session_factory")
+    return _VS(session_factory=session_factory)  # type: ignore[arg-type]
 
 
 def get_report_store(request: Request) -> ReportStore:
-    """Return the ReportStore from app.state."""
-    return _get_state_attr(request, "report_store")  # type: ignore[return-value]
+    """Return a ReportStore backed by the app-level session factory.
+
+    ReportStore accepts embedding_service for pgvector embedding on
+    executive summaries (STORE-05).
+    """
+    from osint_system.reporting.report_store import ReportStore as _RS
+
+    session_factory = _get_state_attr(request, "session_factory")
+    embedding_service = getattr(request.app.state, "embedding_service", None)
+    return _RS(
+        session_factory=session_factory,  # type: ignore[arg-type]
+        embedding_service=embedding_service,
+    )
 
 
 def get_article_store(request: Request) -> ArticleStore:
-    """Return the ArticleStore from app.state."""
-    return _get_state_attr(request, "article_store")  # type: ignore[return-value]
+    """Return an ArticleStore backed by the app-level session factory.
+
+    ArticleStore requires session_factory (mandatory) and accepts
+    embedding_service (optional) for pgvector embedding on save.
+    """
+    from osint_system.data_management.article_store import ArticleStore as _AS
+
+    session_factory = _get_state_attr(request, "session_factory")
+    embedding_service = getattr(request.app.state, "embedding_service", None)
+    return _AS(
+        session_factory=session_factory,  # type: ignore[arg-type]
+        embedding_service=embedding_service,
+    )

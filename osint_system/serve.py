@@ -8,9 +8,8 @@ Usage:
         -> Boots the HTMX dashboard for viewing existing investigation data
 
 API mode starts a full-featured server with SSE streaming, investigation
-lifecycle management, and real-time pipeline events. Dashboard mode loads
-persisted store data from ``data/<investigation_id>/*.json`` files written
-by the InvestigationRunner.
+lifecycle management, and real-time pipeline events. Dashboard mode connects
+to the same PostgreSQL database used by the InvestigationRunner.
 """
 
 from __future__ import annotations
@@ -64,48 +63,38 @@ def _run_api_mode() -> None:
 
 
 def _run_dashboard_mode(investigation_id: str) -> None:
-    """Boot the HTMX dashboard for viewing existing investigation data."""
+    """Boot the HTMX dashboard for viewing existing investigation data.
+
+    Connects to PostgreSQL via init_db() and queries the given
+    investigation_id. No JSON files needed -- data lives in the database.
+    """
     import uvicorn
 
     from osint_system.config.analysis_config import AnalysisConfig
     from osint_system.dashboard import create_app
     from osint_system.data_management.classification_store import ClassificationStore
+    from osint_system.data_management.database import init_db
     from osint_system.data_management.fact_store import FactStore
     from osint_system.data_management.verification_store import VerificationStore
     from osint_system.reporting import ReportGenerator
     from osint_system.reporting.report_store import ReportStore
 
-    store_dir = Path("data") / investigation_id
-
-    if not store_dir.exists():
-        print(f"Error: No data found at {store_dir}")
-        print("Run an investigation first with:")
-        print(f'  uv run python -m osint_system.cli.main investigate "your topic"')
-        sys.exit(1)
-
     config = AnalysisConfig.from_env()
 
-    # Load stores from persisted JSON files
-    articles_path = str(store_dir / "articles.json")
-    facts_path = str(store_dir / "facts.json")
-    classifications_path = str(store_dir / "classifications.json")
-    verifications_path = str(store_dir / "verifications.json")
-    reports_path = str(store_dir / "reports.json")
+    # Initialize database and create stores backed by PostgreSQL
+    session_factory = init_db()
 
-    fact_store = FactStore(persistence_path=facts_path)
-    classification_store = ClassificationStore(persistence_path=classifications_path)
-    verification_store = VerificationStore(persistence_path=verifications_path)
-    report_store = ReportStore(persistence_path=reports_path)
+    fact_store = FactStore(session_factory=session_factory)
+    classification_store = ClassificationStore(session_factory=session_factory)
+    verification_store = VerificationStore(session_factory=session_factory)
+    report_store = ReportStore(session_factory=session_factory)
 
     print("=" * 60)
     print("  OSINT Intelligence System -- Dashboard Mode")
     print("=" * 60)
     print()
     print(f"  Investigation: {investigation_id}")
-    print(f"  Store dir:     {store_dir}")
-    for p in [articles_path, facts_path, classifications_path, verifications_path, reports_path]:
-        exists = Path(p).exists()
-        print(f"  {'OK' if exists else 'MISSING'}: {Path(p).name}")
+    print(f"  Backend:       PostgreSQL")
     print()
 
     app = create_app(

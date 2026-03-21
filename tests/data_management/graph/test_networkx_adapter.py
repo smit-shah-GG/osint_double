@@ -1,7 +1,7 @@
 """Behavioral tests for NetworkXAdapter.
 
 Validates that the NetworkX in-memory adapter exhibits the same merge/query
-semantics as Neo4jAdapter without requiring Docker or a Neo4j instance.
+semantics as MemgraphAdapter without requiring Docker or a Memgraph instance.
 Tests cover:
 
 1. MERGE node semantics (create on first call, update on duplicate key)
