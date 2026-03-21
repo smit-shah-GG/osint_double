@@ -234,7 +234,9 @@ async def migrate_classifications(
                     impact_reasoning=cls_dict.get("impact_reasoning"),
                     history=cls_dict.get("history", []),
                     classification_data=cls_dict,
-                ).on_conflict_do_nothing(index_elements=["fact_id"])
+                ).on_conflict_do_nothing(
+                    index_elements=["investigation_id", "fact_id"]
+                )
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:
@@ -273,7 +275,9 @@ async def migrate_verifications(
                     origin_dubious_flags=ver_dict.get("origin_dubious_flags", []),
                     reasoning=ver_dict.get("reasoning"),
                     verification_data=ver_dict,
-                ).on_conflict_do_nothing(index_elements=["fact_id"])
+                ).on_conflict_do_nothing(
+                    index_elements=["investigation_id", "fact_id"]
+                )
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:

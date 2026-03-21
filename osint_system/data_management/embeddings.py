@@ -146,6 +146,14 @@ class EmbeddingService:
             )
             return vector.tolist()
         except RuntimeError as e:
-            # CUDA assertion failures on malformed input — return zero vector
+            if "CUDA" in str(e) and self._device != "cpu":
+                logger.warning("CUDA error — falling back to CPU for remaining embeddings")
+                self._device = "cpu"
+                self._model.to("cpu")
+                try:
+                    vector = self._model.encode(text, normalize_embeddings=True)
+                    return vector.tolist()
+                except Exception:
+                    pass
             logger.warning("Embedding failed (returning zero vector): %s", e)
             return [0.0] * self._dimension
