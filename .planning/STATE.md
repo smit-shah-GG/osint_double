@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 13 — PostgreSQL + Memgraph Migration
+**Current focus:** Phase 13 COMPLETE -- PostgreSQL + Memgraph Migration. Ready for Phase 17 (Crawler Agent Integration).
 
 ## Current Position
 
 Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: 5 of 7
-Status: In progress
-Last activity: 2026-03-22 — Completed 13-05-PLAN.md (Classification + Verification + Report Store Migration)
+Plan: 7 of 7
+Status: Phase complete
+Last activity: 2026-03-22 — Completed 13-07-PLAN.md (Integration Wiring + Data Migration)
 
-Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 17 plans done)
+Progress: [████████████████████] 58/58 plans (v1.0: 45, v2.0: 13 phase plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [████████████░░░░░░░░] 60/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 17
-- Average duration: 4.5 min
-- Total execution time: 76.7 min
+- Total plans completed: 20
+- Average duration: ~5.5 min
+- Total execution time: ~101.7 min
 
 ## Accumulated Context
 
@@ -61,6 +61,8 @@ Recent decisions affecting current work:
 - [D13-04-02] Entity extraction uses deterministic hash of (investigation_id, canonical, entity_type) for entity_id
 - [D13-04-03] Entity extraction wrapped in try/except per entity -- failure does not abort fact save
 - [D13-05-01] session_factory with None default falls back to get_session_factory() -- preserves 30+ no-arg call sites
+- [D13-07-01] list_investigations queries PostgreSQL for persisted investigations, merging with in-memory registry
+- [D13-07-02] EmbeddingService in runner wrapped in try/except ImportError for graceful degradation
 
 ### Roadmap Evolution
 
@@ -68,7 +70,7 @@ Recent decisions affecting current work:
 
 ### Deferred Issues
 
-None.
+- Embedding backfill with GPU -- CUDA errors during migration resulted in zero vectors; backfill when GPU environment available
 
 ### Blockers/Concerns
 
@@ -80,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed 13-05-PLAN.md (Classification + Verification + Report Store Migration).
+Stopped at: Completed 13-07-PLAN.md (Integration Wiring + Data Migration). Phase 13 complete.
 Resume file: None
