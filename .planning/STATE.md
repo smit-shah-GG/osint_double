@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: 3 of 7
+Plan: 4 of 7
 Status: In progress
-Last activity: 2026-03-22 — Completed 13-03-PLAN.md (Memgraph Adapter + Queries + MAGE)
+Last activity: 2026-03-22 — Completed 13-04-PLAN.md (ArticleStore + FactStore PostgreSQL Migration)
 
-Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 15 plans done)
+Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 16 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [████████████░░░░░░░░] 60/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 15
+- Total plans completed: 16
 - Average duration: 4.5 min
-- Total execution time: 68.7 min
+- Total execution time: 72.7 min
 
 ## Accumulated Context
 
@@ -57,6 +57,9 @@ Recent decisions affecting current work:
 - [D13-06-01] Empty/whitespace input returns zero vector -- stores call embed() unconditionally
 - [D13-03-01] Bolt helper functions renamed _neo4j_* to _bolt_* (protocol-agnostic naming)
 - [D13-03-02] Conditional auth (None when empty) in MemgraphAdapter for CE no-auth default
+- [D13-04-01] Upsert via INSERT ON CONFLICT DO UPDATE on article_id for URL deduplication
+- [D13-04-02] Entity extraction uses deterministic hash of (investigation_id, canonical, entity_type) for entity_id
+- [D13-04-03] Entity extraction wrapped in try/except per entity -- failure does not abort fact save
 
 ### Roadmap Evolution
 
@@ -76,5 +79,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed 13-03-PLAN.md (Memgraph Adapter + Queries + MAGE).
+Stopped at: Completed 13-04-PLAN.md (ArticleStore + FactStore PostgreSQL Migration).
 Resume file: None
