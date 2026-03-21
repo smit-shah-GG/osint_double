@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 12 of 17 (API Layer & Pipeline Events)
-Plan: 1 of 4
+Plan: 3 of 4
 Status: In progress
-Last activity: 2026-03-21 — Completed 12-01-PLAN.md (API infrastructure: schemas, errors, event bus, registry)
+Last activity: 2026-03-21 — Completed 12-03-PLAN.md (data-serving API routes: facts, reports, sources, graph)
 
-Progress: [██████████░░░░░░░░░░] 50/TBD plans (v1.0 complete, v2.0: 5/8+ Phase 12 plan 1 done)
+Progress: [███████████░░░░░░░░░] 52/TBD plans (v1.0 complete, v2.0: 7/8+ Phase 12 plans 1,3 done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [██████████░░░░░░░░░░] 50/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 5
-- Average duration: 4.2 min
-- Total execution time: 21.0 min
+- Total plans completed: 7
+- Average duration: 4.7 min
+- Total execution time: 32.8 min
 
 ## Accumulated Context
 
@@ -42,6 +42,8 @@ Recent decisions affecting current work:
 - [D12-01-01] API schemas fully decoupled from internal pipeline models (zero imports)
 - [D12-01-02] Event bus uses synchronous emit (GIL-protected, no asyncio.Lock needed for single event loop)
 - [D12-01-03] Valid transition graph enforced in registry with ConflictError for violations
+- [D12-03-01] Dual store resolution: investigation_stores dict with app.state direct fallback
+- [D12-03-02] Graph adapter resolved from graph_adapters dict or pipeline._adapter
 
 ### Roadmap Evolution
 
@@ -61,5 +63,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Completed 12-01-PLAN.md, ready to execute 12-02-PLAN.md
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
