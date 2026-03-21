@@ -17,10 +17,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ORM metadata for Alembic autogenerate support.
-# Base is the declarative base for all SQLAlchemy models.
-# IMPORTANT: models/__init__.py must import every model class so that
-# Base.metadata contains all table definitions when autogenerate runs.
-from osint_system.data_management.models.base import Base  # noqa: E402
+# CRITICAL: Import from models package (NOT models.base) to trigger
+# registration of ALL model classes in Base.metadata. Without this,
+# autogenerate produces an empty migration (Pitfall 6 from RESEARCH.md).
+from osint_system.data_management.models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
