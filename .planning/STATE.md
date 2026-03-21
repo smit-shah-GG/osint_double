@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 12 — API Layer & Pipeline Events
+**Current focus:** Phase 12 complete — ready for Phase 13 (SQLite Persistence)
 
 ## Current Position
 
 Phase: 12 of 17 (API Layer & Pipeline Events)
-Plan: 3 of 4
-Status: In progress
-Last activity: 2026-03-21 — Completed 12-02-PLAN.md (investigation routes + SSE streaming)
+Plan: 4 of 4
+Status: Phase complete
+Last activity: 2026-03-22 — Completed 12-04-PLAN.md (API app factory & integration)
 
-Progress: [███████████░░░░░░░░░] 53/TBD plans (v1.0 complete, v2.0: 8/8+ Phase 12 plans 1,2,3 done)
+Progress: [████████████░░░░░░░░] 57/TBD plans (v1.0 complete, v2.0: 12/12+ Phase 12 all 4 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [███████████░░░░░░░░░] 53/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 8
-- Average duration: 5.0 min
-- Total execution time: 40.1 min
+- Total plans completed: 12
+- Average duration: 4.5 min
+- Total execution time: 53.2 min
 
 ## Accumulated Context
 
@@ -47,6 +47,7 @@ Recent decisions affecting current work:
 - [D12-02-03] Regenerate bypasses transition graph under lock (COMPLETED->RUNNING is special case)
 - [D12-03-01] Dual store resolution: investigation_stores dict with app.state direct fallback
 - [D12-03-02] Graph adapter resolved from graph_adapters dict or pipeline._adapter
+- [D12-04-01] Lifespan context manager for graceful shutdown (not deprecated on_event)
 
 ### Roadmap Evolution
 
@@ -65,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Completed 12-02-PLAN.md, ready to execute 12-04-PLAN.md
+Last session: 2026-03-22
+Stopped at: Completed Phase 12 (all 4 plans). Ready for Phase 13 (SQLite Persistence).
 Resume file: None
