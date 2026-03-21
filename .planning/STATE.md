@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: 6 of 7
+Plan: 3 of 7
 Status: In progress
-Last activity: 2026-03-22 — Completed 13-06-PLAN.md (Embedding Service)
+Last activity: 2026-03-22 — Completed 13-03-PLAN.md (Memgraph Adapter + Queries + MAGE)
 
-Progress: [████████████░░░░░░░░] 59/TBD plans (v1.0 complete, v2.0: 14 plans done)
+Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 15 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [████████████░░░░░░░░] 59/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 14
-- Average duration: 4.4 min
-- Total execution time: 61.2 min
+- Total plans completed: 15
+- Average duration: 4.5 min
+- Total execution time: 68.7 min
 
 ## Accumulated Context
 
@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 - [D13-01-02] Dual driver pattern: asyncpg for queries, psycopg for pgvector type registration
 - [D13-01-03] Models Base stub created in Plan 01 so migrations/env.py import resolves immediately
 - [D13-06-01] Empty/whitespace input returns zero vector -- stores call embed() unconditionally
+- [D13-03-01] Bolt helper functions renamed _neo4j_* to _bolt_* (protocol-agnostic naming)
+- [D13-03-02] Conditional auth (None when empty) in MemgraphAdapter for CE no-auth default
 
 ### Roadmap Evolution
 
@@ -71,5 +73,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed 13-06-PLAN.md (Embedding Service). Wave 2 complete.
+Stopped at: Completed 13-03-PLAN.md (Memgraph Adapter + Queries + MAGE).
 Resume file: None
