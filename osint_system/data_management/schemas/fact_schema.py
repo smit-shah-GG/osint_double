@@ -45,7 +45,7 @@ class Claim(BaseModel):
     assertion_type: Literal["statement", "denial", "claim", "prediction", "quote"] = (
         "statement"
     )
-    claim_type: Literal["event", "state", "relationship", "prediction", "planned"] = (
+    claim_type: Literal["event", "state", "relationship", "prediction", "planned", "statement"] = (
         "event"
     )
 

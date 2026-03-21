@@ -34,6 +34,45 @@ from osint_system.config.prompts.fact_extraction_prompts import (
 )
 
 
+# Normalize LLM-emitted claim_type values to valid schema values.
+# Models in the fallback chain (DeepSeek, Hermes, Nemotron) emit non-standard
+# values that Pydantic would either silently default or reject.
+_CLAIM_TYPE_NORMALIZE: dict[str, str] = {
+    "statement": "statement",
+    "action": "event",
+    "fact": "statement",
+    "opinion": "statement",
+    "assertion": "statement",
+    "observation": "state",
+    "description": "state",
+    "claim": "event",
+    "announcement": "event",
+    "plan": "planned",
+    "forecast": "prediction",
+    "analysis": "state",
+}
+_VALID_CLAIM_TYPES = {"event", "state", "relationship", "prediction", "planned", "statement"}
+
+# Normalize LLM-emitted assertion_type values to valid schema values.
+# LLMs also return non-standard assertion_type values that must be mapped
+# to the Literal["statement", "denial", "claim", "prediction", "quote"].
+_ASSERTION_TYPE_NORMALIZE: dict[str, str] = {
+    "statement": "statement",
+    "denial": "denial",
+    "claim": "claim",
+    "prediction": "prediction",
+    "quote": "quote",
+    "fact": "statement",
+    "opinion": "statement",
+    "analysis": "statement",
+    "assertion": "claim",
+    "observation": "statement",
+    "report": "statement",
+    "allegation": "claim",
+}
+_VALID_ASSERTION_TYPES = {"statement", "denial", "claim", "prediction", "quote"}
+
+
 class FactExtractionAgent(BaseSifter):
     """
     Extracts structured facts from raw text using Gemini.
@@ -61,7 +100,7 @@ class FactExtractionAgent(BaseSifter):
 
     def __init__(
         self,
-        model_name: str = "gemini-3.1-flash-lite-preview",
+        model_name: str = "gemini-3-flash",
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         min_confidence: float = 0.0,  # Default: include all per CONTEXT.md
         gemini_client: Optional[Any] = None,
@@ -577,10 +616,28 @@ class FactExtractionAgent(BaseSifter):
         if not claim_text:
             raise ValueError("Missing claim text")
 
+        # Normalize claim_type — LLMs in the fallback chain emit non-standard values
+        raw_claim_type = claim_data.get("claim_type", "event")
+        if isinstance(raw_claim_type, str):
+            normalized_claim_type = _CLAIM_TYPE_NORMALIZE.get(raw_claim_type.lower(), raw_claim_type.lower())
+            if normalized_claim_type not in _VALID_CLAIM_TYPES:
+                normalized_claim_type = "event"  # Final fallback for completely unknown values
+        else:
+            normalized_claim_type = "event"
+
+        # Normalize assertion_type — same issue with non-standard LLM values
+        raw_assertion_type = claim_data.get("assertion_type", "statement")
+        if isinstance(raw_assertion_type, str):
+            normalized_assertion_type = _ASSERTION_TYPE_NORMALIZE.get(raw_assertion_type.lower(), raw_assertion_type.lower())
+            if normalized_assertion_type not in _VALID_ASSERTION_TYPES:
+                normalized_assertion_type = "statement"  # Final fallback
+        else:
+            normalized_assertion_type = "statement"
+
         claim = Claim(
             text=claim_text,
-            assertion_type=claim_data.get("assertion_type", "statement"),
-            claim_type=claim_data.get("claim_type", "event"),
+            assertion_type=normalized_assertion_type,
+            claim_type=normalized_claim_type,
         )
 
         # Extract entities
