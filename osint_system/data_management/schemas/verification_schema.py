@@ -147,6 +147,7 @@ class VerificationQuery(BaseModel):
         "temporal_context",
         "authority_arbitration",
         "clarity_enhancement",
+        "adversarial",
     ] = Field(..., description="Query variant type for tracking and optimization")
     target_sources: list[str] = Field(
         default_factory=list,

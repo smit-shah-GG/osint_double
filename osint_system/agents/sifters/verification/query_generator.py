@@ -1,11 +1,13 @@
 """Species-specialized query generation per CONTEXT.md decisions.
 
-Generates up to 3 query variants per fact based on dubious flag type.
+Generates up to 5 query variants per fact based on dubious flag type:
+species-specific confirming queries plus adversarial refutation queries.
 Each species has a different verification strategy:
 - PHANTOM: Source-chain queries (trace back to root source attribution)
 - FOG: Clarity-seeking queries (find harder/clearer claim versions)
 - ANOMALY: Compound queries (temporal + authority + clarity together)
 - NOISE: Skipped (batch analysis only, per CONTEXT.md)
+- Adversarial: Entity+negation and claim+contradiction queries (all non-NOISE)
 
 Usage:
     from osint_system.agents.sifters.verification.query_generator import QueryGenerator
@@ -42,19 +44,22 @@ _VAGUE_TEMPORAL_PATTERNS = re.compile(
 class QueryGenerator:
     """Species-specialized query generation per CONTEXT.md decisions.
 
-    Generates up to 3 query variants per fact based on dubious flag type.
+    Generates up to 5 query variants per fact based on dubious flag type:
+    species-specific confirming queries plus adversarial refutation queries.
     Each species has different verification strategy:
     - PHANTOM: Source-chain queries (trace back to root source)
     - FOG: Clarity-seeking queries (find harder/clearer claims)
     - ANOMALY: Compound queries (temporal + authority + clarity)
     - NOISE: Skipped (batch analysis only)
+    - Adversarial: Refutation queries appended for all non-NOISE facts
     """
 
-    def __init__(self, max_queries: int = 3) -> None:
+    def __init__(self, max_queries: int = 5) -> None:
         """Initialize QueryGenerator.
 
         Args:
-            max_queries: Maximum queries per fact (default 3, per CONTEXT.md).
+            max_queries: Maximum queries per fact (default 5: 2 confirming
+                + 2 adversarial + 1 original, per Phase 11 CONTEXT.md).
         """
         self.max_queries = max_queries
         self._logger = structlog.get_logger().bind(component="QueryGenerator")
@@ -94,6 +99,10 @@ class QueryGenerator:
             reasoning = classification.get_flag_reasoning(flag)
             flag_queries = self._generate_for_flag(fact, flag, reasoning)
             all_queries.extend(flag_queries)
+
+        # Add adversarial queries for all non-NOISE facts
+        adversarial = self._generate_adversarial_queries(fact)
+        all_queries.extend(adversarial)
 
         # Limit total to max_queries
         limited = all_queries[: self.max_queries]
@@ -339,6 +348,53 @@ class QueryGenerator:
                         dubious_flag=DubiousFlag.ANOMALY,
                     )
                 )
+
+        return queries
+
+    # ── Adversarial: Refutation queries ─────────────────────────────
+
+    def _generate_adversarial_queries(
+        self,
+        fact: dict[str, Any],
+    ) -> list[VerificationQuery]:
+        """Generate adversarial/refutation queries to seek disconfirming evidence.
+
+        Creates queries that explicitly search for denials, debunking, or
+        contradiction of the claim. These complement the species-specific
+        confirming queries to enable genuine refutation detection.
+
+        Returns up to 2 adversarial queries.
+        """
+        entities = self._extract_entity_names(fact)
+        entity_str = " ".join(entities[:3]) if entities else ""
+        claim_text = self._extract_claim_text(fact)
+
+        queries: list[VerificationQuery] = []
+
+        # 1. Entity + negation keywords
+        if entity_str:
+            queries.append(
+                VerificationQuery(
+                    query=f"{entity_str} denied false disproven",
+                    variant_type="adversarial",
+                    target_sources=["news_outlet", "wire_service"],
+                    purpose="Seek refuting evidence for entities in claim",
+                    dubious_flag=None,
+                )
+            )
+
+        # 2. Claim phrase + contradiction keywords
+        if claim_text:
+            phrase = claim_text[:60].strip()
+            queries.append(
+                VerificationQuery(
+                    query=f'"{phrase}" false OR denied OR disproven OR debunked',
+                    variant_type="adversarial",
+                    target_sources=["news_outlet"],
+                    purpose="Seek contradiction via negation keywords on claim text",
+                    dubious_flag=None,
+                )
+            )
 
         return queries
 

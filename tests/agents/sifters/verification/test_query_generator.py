@@ -30,6 +30,7 @@ VALID_VARIANT_TYPES = {
     "temporal_context",
     "authority_arbitration",
     "clarity_enhancement",
+    "adversarial",
 }
 
 
@@ -174,11 +175,11 @@ def no_flags_classification() -> FactClassification:
 class TestQueryGeneratorInit:
     def test_default_max_queries(self) -> None:
         gen = QueryGenerator()
-        assert gen.max_queries == 3
+        assert gen.max_queries == 5
 
     def test_custom_max_queries(self) -> None:
-        gen = QueryGenerator(max_queries=5)
-        assert gen.max_queries == 5
+        gen = QueryGenerator(max_queries=3)
+        assert gen.max_queries == 3
 
 
 # ── PHANTOM Query Tests ──────────────────────────────────────────────────
@@ -186,14 +187,15 @@ class TestQueryGeneratorInit:
 
 class TestPhantomQueries:
     @pytest.mark.asyncio
-    async def test_generates_three_queries(
+    async def test_generates_five_queries(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         phantom_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, phantom_classification)
-        assert len(queries) == 3
+        # 3 species-specific + 2 adversarial = 5 (capped at max_queries=5)
+        assert len(queries) == 5
 
     @pytest.mark.asyncio
     async def test_entity_focused_variant(
@@ -237,15 +239,19 @@ class TestPhantomQueries:
         assert "official_statement" in broader[0].target_sources
 
     @pytest.mark.asyncio
-    async def test_all_queries_tagged_phantom(
+    async def test_species_queries_tagged_phantom(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         phantom_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, phantom_classification)
-        for q in queries:
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        for q in species_queries:
             assert q.dubious_flag == DubiousFlag.PHANTOM
+        adversarial_queries = [q for q in queries if q.variant_type == "adversarial"]
+        for q in adversarial_queries:
+            assert q.dubious_flag is None
 
     @pytest.mark.asyncio
     async def test_no_entities_produces_fewer_queries(
@@ -255,9 +261,13 @@ class TestPhantomQueries:
         phantom_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_no_entities, phantom_classification)
-        # entity_focused and broader_context require entities; only exact_phrase remains
-        assert len(queries) == 1
-        assert queries[0].variant_type == "exact_phrase"
+        # entity_focused and broader_context require entities; only exact_phrase
+        # from species + 1 adversarial (claim-based, no entity-based)
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        assert len(species_queries) == 1
+        assert species_queries[0].variant_type == "exact_phrase"
+        adversarial_queries = [q for q in queries if q.variant_type == "adversarial"]
+        assert len(adversarial_queries) == 1  # Only claim-based, no entity-based
 
 
 # ── FOG Query Tests ──────────────────────────────────────────────────────
@@ -265,14 +275,15 @@ class TestPhantomQueries:
 
 class TestFogQueries:
     @pytest.mark.asyncio
-    async def test_generates_three_queries(
+    async def test_generates_five_queries(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         fog_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, fog_classification)
-        assert len(queries) == 3
+        # 3 species-specific + 2 adversarial = 5 (capped at max_queries=5)
+        assert len(queries) == 5
 
     @pytest.mark.asyncio
     async def test_detects_vague_quantity(
@@ -323,14 +334,15 @@ class TestFogQueries:
         assert "confirmed" in entity_focused[0].query
 
     @pytest.mark.asyncio
-    async def test_all_queries_tagged_fog(
+    async def test_species_queries_tagged_fog(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         fog_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, fog_classification)
-        for q in queries:
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        for q in species_queries:
             assert q.dubious_flag == DubiousFlag.FOG
 
 
@@ -339,14 +351,15 @@ class TestFogQueries:
 
 class TestAnomalyQueries:
     @pytest.mark.asyncio
-    async def test_generates_three_queries(
+    async def test_generates_five_queries(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         anomaly_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, anomaly_classification)
-        assert len(queries) == 3
+        # 3 species-specific + 2 adversarial = 5 (capped at max_queries=5)
+        assert len(queries) == 5
 
     @pytest.mark.asyncio
     async def test_temporal_context_with_temporal_value(
@@ -402,14 +415,15 @@ class TestAnomalyQueries:
         assert len(clarity) == 1
 
     @pytest.mark.asyncio
-    async def test_all_queries_tagged_anomaly(
+    async def test_species_queries_tagged_anomaly(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         anomaly_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, anomaly_classification)
-        for q in queries:
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        for q in species_queries:
             assert q.dubious_flag == DubiousFlag.ANOMALY
 
 
@@ -445,8 +459,9 @@ class TestEdgeCases:
         multi_flag_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, multi_flag_classification)
-        # PHANTOM produces 3, FOG produces 3, but limited to max_queries=3
-        assert len(queries) <= 3
+        # PHANTOM produces 3, FOG produces 3, adversarial produces 2 = 8 total
+        # but limited to max_queries=5
+        assert len(queries) <= 5
 
     @pytest.mark.asyncio
     async def test_multi_flag_includes_both_flag_types(
@@ -455,9 +470,9 @@ class TestEdgeCases:
         fact_with_entities: dict,
         multi_flag_classification: FactClassification,
     ) -> None:
-        gen = QueryGenerator(max_queries=6)
+        gen = QueryGenerator(max_queries=10)
         queries = await gen.generate_queries(fact_with_entities, multi_flag_classification)
-        flags_present = {q.dubious_flag for q in queries}
+        flags_present = {q.dubious_flag for q in queries if q.dubious_flag is not None}
         assert DubiousFlag.PHANTOM in flags_present
         assert DubiousFlag.FOG in flags_present
 
@@ -517,17 +532,19 @@ class TestEdgeCases:
             dubious_flags=[DubiousFlag.PHANTOM, DubiousFlag.NOISE],
         )
         queries = await generator.generate_queries(fact_with_entities, classification)
-        # NOISE flag is skipped, only PHANTOM queries generated
-        for q in queries:
+        # NOISE flag is skipped, only PHANTOM species queries + adversarial generated
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        for q in species_queries:
             assert q.dubious_flag == DubiousFlag.PHANTOM
 
     @pytest.mark.asyncio
     async def test_custom_max_queries_respected(
         self, fact_with_entities: dict, phantom_classification: FactClassification
     ) -> None:
-        gen = QueryGenerator(max_queries=1)
+        gen = QueryGenerator(max_queries=2)
         queries = await gen.generate_queries(fact_with_entities, phantom_classification)
-        assert len(queries) == 1
+        # 3 species + 2 adversarial = 5, but limited to 2
+        assert len(queries) == 2
 
 
 # ── Query Variant Validation Tests ───────────────────────────────────────
@@ -557,16 +574,21 @@ class TestQueryVariantValidation:
             assert q.purpose != ""
 
     @pytest.mark.asyncio
-    async def test_all_queries_have_dubious_flag(
+    async def test_species_queries_have_dubious_flag(
         self,
         generator: QueryGenerator,
         fact_with_entities: dict,
         anomaly_classification: FactClassification,
     ) -> None:
         queries = await generator.generate_queries(fact_with_entities, anomaly_classification)
-        for q in queries:
+        species_queries = [q for q in queries if q.variant_type != "adversarial"]
+        for q in species_queries:
             assert q.dubious_flag is not None
             assert isinstance(q.dubious_flag, DubiousFlag)
+        # Adversarial queries have dubious_flag=None (not species-specific)
+        adversarial_queries = [q for q in queries if q.variant_type == "adversarial"]
+        for q in adversarial_queries:
+            assert q.dubious_flag is None
 
     @pytest.mark.asyncio
     async def test_all_queries_have_nonempty_target_sources(
@@ -600,3 +622,99 @@ class TestQueryVariantValidation:
         queries = await generator.generate_queries(fact_with_entities, anomaly_classification)
         for q in queries:
             assert q.query.strip() != ""
+
+
+# ── Adversarial Query Tests ─────────────────────────────────────────────
+
+
+class TestAdversarialQueries:
+    @pytest.mark.asyncio
+    async def test_adversarial_queries_present(
+        self,
+        generator: QueryGenerator,
+        fact_with_entities: dict,
+        phantom_classification: FactClassification,
+    ) -> None:
+        queries = await generator.generate_queries(fact_with_entities, phantom_classification)
+        adversarial = [q for q in queries if q.variant_type == "adversarial"]
+        assert len(adversarial) == 2
+
+    @pytest.mark.asyncio
+    async def test_adversarial_entity_query_has_negation_keywords(
+        self,
+        generator: QueryGenerator,
+    ) -> None:
+        fact = {
+            "entities": [{"text": "Russia"}],
+            "claim": {"text": "Russia launched missile attack on Ukraine"},
+        }
+        adv_queries = generator._generate_adversarial_queries(fact)
+        entity_query = adv_queries[0]
+        assert "denied" in entity_query.query
+        assert "false" in entity_query.query
+        assert "disproven" in entity_query.query
+
+    @pytest.mark.asyncio
+    async def test_adversarial_claim_query_has_quoted_phrase(
+        self,
+        generator: QueryGenerator,
+    ) -> None:
+        fact = {
+            "entities": [{"text": "Russia"}],
+            "claim": {"text": "Russia launched missile attack on Ukraine"},
+        }
+        adv_queries = generator._generate_adversarial_queries(fact)
+        claim_query = adv_queries[1]
+        assert '"' in claim_query.query
+        assert "debunked" in claim_query.query
+
+    @pytest.mark.asyncio
+    async def test_adversarial_no_entities_produces_one(
+        self,
+        generator: QueryGenerator,
+    ) -> None:
+        fact = {
+            "entities": [],
+            "claim": {"text": "Something bad happened"},
+        }
+        adv_queries = generator._generate_adversarial_queries(fact)
+        assert len(adv_queries) == 1
+        assert adv_queries[0].variant_type == "adversarial"
+
+    @pytest.mark.asyncio
+    async def test_adversarial_no_claim_produces_one(
+        self,
+        generator: QueryGenerator,
+    ) -> None:
+        fact = {
+            "entities": [{"text": "NATO"}],
+            "claim": {},
+        }
+        adv_queries = generator._generate_adversarial_queries(fact)
+        assert len(adv_queries) == 1
+        assert "NATO" in adv_queries[0].query
+
+    @pytest.mark.asyncio
+    async def test_adversarial_dubious_flag_is_none(
+        self,
+        generator: QueryGenerator,
+    ) -> None:
+        fact = {
+            "entities": [{"text": "Russia"}],
+            "claim": {"text": "Test claim"},
+        }
+        adv_queries = generator._generate_adversarial_queries(fact)
+        for q in adv_queries:
+            assert q.dubious_flag is None
+
+    @pytest.mark.asyncio
+    async def test_adversarial_not_generated_for_noise(
+        self,
+        generator: QueryGenerator,
+        fact_with_entities: dict,
+        noise_only_classification: FactClassification,
+    ) -> None:
+        queries = await generator.generate_queries(
+            fact_with_entities, noise_only_classification
+        )
+        assert queries == []  # NOISE skips entirely, including adversarial
