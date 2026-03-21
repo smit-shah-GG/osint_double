@@ -55,10 +55,11 @@ from osint_system.data_management.verification_store import VerificationStore
 logger = structlog.get_logger(__name__)
 
 
-# Statuses eligible for default ingestion (skip REFUTED, UNVERIFIABLE, PENDING, IN_PROGRESS)
+# Statuses eligible for default ingestion (skip REFUTED, PENDING, IN_PROGRESS)
 _INGESTIBLE_STATUSES = {
     VerificationStatus.CONFIRMED,
     VerificationStatus.SUPERSEDED,
+    VerificationStatus.UNVERIFIABLE,  # Phase 11: ingest with status tag
 }
 
 
@@ -252,8 +253,8 @@ class GraphIngestor:
     ) -> dict[str, int]:
         """Bulk ingest all verified facts for an investigation.
 
-        Fetches all verification results, filters to CONFIRMED and SUPERSEDED
-        statuses (skip REFUTED, UNVERIFIABLE, PENDING, IN_PROGRESS), then
+        Fetches all verification results, filters to CONFIRMED, SUPERSEDED,
+        and UNVERIFIABLE statuses (skip REFUTED, PENDING, IN_PROGRESS), then
         ingests each qualifying fact with shared entity resolution.
 
         Args:

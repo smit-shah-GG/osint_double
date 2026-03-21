@@ -4,22 +4,27 @@ Executes web searches via the `ddgs` package (no API key required) and
 converts results to EvidenceItem objects with authority scoring from
 Phase 7 SourceCredibilityScorer baselines.
 
-Snippet stance detection: scans result snippets for negation signals
-(denied, false, disproven, no evidence, etc.) and sets supports_claim=False
-when contradiction patterns are detected. This enables the EvidenceAggregator
-to produce REFUTED verdicts — without it, supports_claim was hardcoded True
-and refutation was structurally impossible.
+Snippet stance detection: two-tier approach:
+1. Primary: Regex negation patterns (33 patterns, fast, zero-cost).
+2. Fallback: LLM stance assessment via OpenRouter when regex is inconclusive
+   and snippet is long enough (>100 chars) to contain nuanced refutation.
 
 Usage:
     from osint_system.agents.sifters.verification.search_executor import SearchExecutor
 
     executor = SearchExecutor()
-    evidence = await executor.execute_query(query)
+    evidence = await executor.execute_query(query, claim_text="Russia deployed troops")
+
+    # With injected LLM client for stance fallback
+    from osint_system.llm.openrouter_client import OpenRouterClient
+    client = OpenRouterClient(api_key="sk-or-...")
+    executor = SearchExecutor(llm_client=client)
 """
 
 import asyncio
+import json
 import re
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import structlog
@@ -91,15 +96,19 @@ class SearchExecutor:
         self,
         rate_limiter: Optional[RateLimiter] = None,
         max_results: int = 5,
+        llm_client: Optional[Any] = None,
     ) -> None:
         """Initialize SearchExecutor.
 
         Args:
             rate_limiter: Existing RateLimiter for search throttling.
             max_results: Maximum search results per query.
+            llm_client: Optional LLM client for stance fallback.
+                        If not provided, lazy-initialized from OPENROUTER_API_KEY.
         """
         self._rate_limiter = rate_limiter
         self._max_results = max_results
+        self._llm_client = llm_client
         self._ddgs = None
         self._logger = structlog.get_logger().bind(component="SearchExecutor")
 
@@ -117,14 +126,32 @@ class SearchExecutor:
                 )
         return self._ddgs
 
+    def _get_llm_client(self) -> Optional[Any]:
+        """Lazy-initialize LLM client for stance fallback if not injected.
+
+        Attempts to create an OpenRouterClient from the OPENROUTER_API_KEY
+        environment variable. Returns None if key is not set.
+        """
+        if self._llm_client is None:
+            import os
+
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if openrouter_key:
+                from osint_system.llm.openrouter_client import OpenRouterClient
+
+                self._llm_client = OpenRouterClient(api_key=openrouter_key)
+        return self._llm_client
+
     async def execute_query(
         self,
         query: VerificationQuery,
+        claim_text: str = "",
     ) -> list[EvidenceItem]:
         """Execute a single verification query and return evidence items.
 
         Args:
             query: VerificationQuery with search string and metadata.
+            claim_text: Original claim text for LLM stance fallback context.
 
         Returns:
             List of EvidenceItem objects from search results.
@@ -162,6 +189,20 @@ class SearchExecutor:
                 relevance = self._calculate_relevance(snippet, query)
                 supports = self._detect_stance(snippet)
 
+                # LLM stance fallback for ambiguous snippets:
+                # When regex found no negation (supports=True), snippet is
+                # long enough for nuanced analysis, and LLM client is available,
+                # use LLM to detect subtle refutation that regex misses.
+                if (
+                    supports
+                    and len(snippet) > 100
+                    and claim_text
+                    and self._get_llm_client() is not None
+                ):
+                    supports = await self._llm_stance_assessment(
+                        snippet, claim_text
+                    )
+
                 evidence_items.append(
                     EvidenceItem(
                         source_url=url,
@@ -194,11 +235,13 @@ class SearchExecutor:
     async def execute_queries(
         self,
         queries: list[VerificationQuery],
+        claim_text: str = "",
     ) -> list[EvidenceItem]:
         """Execute multiple queries sequentially with deduplication.
 
         Args:
             queries: List of VerificationQuery objects.
+            claim_text: Original claim text for LLM stance fallback context.
 
         Returns:
             Deduplicated list of EvidenceItem objects.
@@ -207,7 +250,7 @@ class SearchExecutor:
         seen_urls: set[str] = set()
 
         for query in queries:
-            results = await self.execute_query(query)
+            results = await self.execute_query(query, claim_text=claim_text)
             for item in results:
                 if item.source_url not in seen_urls:
                     seen_urls.add(item.source_url)
@@ -236,6 +279,56 @@ class SearchExecutor:
 
         hits = sum(1 for p in _NEGATION_PATTERNS if p.search(snippet))
         return hits < _NEGATION_THRESHOLD
+
+    async def _llm_stance_assessment(
+        self,
+        snippet: str,
+        claim_text: str,
+    ) -> bool:
+        """LLM fallback for stance detection when regex is inconclusive.
+
+        Uses Gemini 3.1 Flash Lite via OpenRouter (~$0.06/500 calls).
+        Returns True if snippet supports claim, False if refutes.
+
+        Args:
+            snippet: Search result snippet text (>100 chars).
+            claim_text: Original claim text for context.
+
+        Returns:
+            True if snippet supports/is neutral toward claim,
+            False if snippet refutes the claim.
+        """
+        client = self._get_llm_client()
+        if client is None:
+            return True  # Default to supporting if no LLM available
+
+        prompt = (
+            f"Does the following snippet SUPPORT or REFUTE the claim?\n\n"
+            f"CLAIM: {claim_text}\n\n"
+            f"SNIPPET: {snippet}\n\n"
+            f'Respond with JSON: {{"stance": "supports" | "refutes" | "neutral"}}'
+        )
+        try:
+            response = await client.aio.models.generate_content(
+                model="gemini-3.1-flash-lite-preview",
+                contents=[prompt],
+                config={
+                    "temperature": 0.0,
+                    "max_output_tokens": 50,
+                    "response_format": "json",
+                },
+            )
+            result = json.loads(response.text)
+            stance = result.get("stance", "neutral")
+            self._logger.debug(
+                "llm_stance_result",
+                stance=stance,
+                snippet=snippet[:80],
+            )
+            return stance != "refutes"
+        except Exception as e:
+            self._logger.debug("llm_stance_failed", error=str(e))
+            return True  # Default to supporting on failure
 
     # ── Authority & Relevance ─────────────────────────────────────────
 
