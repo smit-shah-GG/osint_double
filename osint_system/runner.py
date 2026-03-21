@@ -462,12 +462,15 @@ class InvestigationRunner:
 
         # ── Step 3: Merge, dedup, cap ────────────────────────────
         # Topic entries first (higher relevance), then static supplements
+        # Normalize URLs for dedup: strip query params (tracking tokens like
+        # gaa_sig, utm_* cause duplicate articles from WSJ, Google News, etc.)
         combined = topic_entries + static_relevant
         seen_urls: set[str] = set()
         deduped: list[dict[str, str]] = []
         for e in combined:
-            if e["url"] not in seen_urls:
-                seen_urls.add(e["url"])
+            normalized = urlparse(e["url"])._replace(query="", fragment="").geturl()
+            if normalized not in seen_urls:
+                seen_urls.add(normalized)
                 deduped.append(e)
 
         max_articles = 100
@@ -708,7 +711,7 @@ class InvestigationRunner:
         agent = FactClassificationAgent(
             classification_store=self.classification_store,
             fact_store=self.fact_store,
-            noise_credibility_threshold=0.3,  # VERIFY-01: configurable NOISE threshold
+            noise_credibility_threshold=0.15,  # VERIFY-01: lowered from 0.3 — fewer false NOISE flags
         )
 
         # Retrieve all extracted facts

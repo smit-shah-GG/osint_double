@@ -72,7 +72,7 @@ class DubiousDetector:
     # Default thresholds (from CONTEXT.md)
     PHANTOM_HOP_THRESHOLD = 2
     FOG_CLARITY_THRESHOLD = 0.5
-    NOISE_CREDIBILITY_THRESHOLD = 0.3
+    NOISE_CREDIBILITY_THRESHOLD = 0.15
 
     def __init__(
         self,

@@ -111,8 +111,12 @@ class VerificationAgent:
         Returns:
             Summary stats with counts by status.
         """
-        # Get priority queue (excludes NOISE-only per Phase 7)
-        queue = await self.classification_store.get_priority_queue(investigation_id)
+        # Get priority queue — include NOISE facts for verification
+        # Per Phase 11 CONTEXT.md: "err toward inclusion" — NOISE facts
+        # should be verified, not silently dropped
+        queue = await self.classification_store.get_priority_queue(
+            investigation_id, exclude_noise=False
+        )
 
         # Filter to only facts with dubious flags — non-dubious facts have no
         # queries to generate and would be marked unverifiable instantly
@@ -263,8 +267,12 @@ class VerificationAgent:
         query_attempts = 0
         evaluation = None
 
-        # Execute queries with 3-attempt limit and short-circuit
-        for query in queries[: self.max_query_attempts]:
+        # Split queries into confirming and adversarial
+        confirming = [q for q in queries if q.variant_type != "adversarial"]
+        adversarial = [q for q in queries if q.variant_type == "adversarial"]
+
+        # Phase 1: Run confirming queries with short-circuit
+        for query in confirming[: self.max_query_attempts]:
             query_attempts += 1
             queries_used.append(query.query)
 
@@ -275,12 +283,26 @@ class VerificationAgent:
                 fact, all_evidence
             )
 
-            # Short-circuit on definitive result
             if evaluation.status in (
                 VerificationStatus.CONFIRMED,
                 VerificationStatus.REFUTED,
             ):
                 break
+
+        # Phase 2: Always run adversarial queries to seek refutation
+        # even if confirming queries already found evidence
+        for query in adversarial:
+            query_attempts += 1
+            queries_used.append(query.query)
+
+            query_evidence = await self.search_executor.execute_query(query)
+            all_evidence.extend(query_evidence)
+
+        # Re-evaluate with all evidence (confirming + adversarial)
+        if adversarial and all_evidence:
+            evaluation = await self.evidence_aggregator.evaluate_evidence(
+                fact, all_evidence
+            )
 
         # Determine final status
         if evaluation is None or evaluation.status == VerificationStatus.PENDING:

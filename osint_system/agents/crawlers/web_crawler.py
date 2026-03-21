@@ -202,17 +202,14 @@ class BrowserPool:
 
                 if is_cloudflare_challenge(html):
                     logger.warning(
-                        "cloudflare_challenge_detected",
-                        url=url[:120],
+                        f"cloudflare_challenge_detected url={url[:120]}",
                     )
                     return ""
 
                 return html
             except Exception as exc:
                 logger.debug(
-                    "browser_pool_fetch_failed",
-                    url=url[:120],
-                    error=str(exc),
+                    f"browser_pool_fetch_failed url={url[:120]} error={exc}",
                 )
                 return ""
             finally:

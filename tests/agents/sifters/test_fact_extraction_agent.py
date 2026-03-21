@@ -103,7 +103,7 @@ class TestAgentInitialization:
     def test_initialization_defaults(self, agent):
         """Agent initializes with correct defaults."""
         assert agent.name == "FactExtractionAgent"
-        assert agent.model_name == "gemini-3.1-flash-lite-preview"
+        assert agent.model_name == "gemini-3-flash"
         assert agent.chunk_size == 40000
         assert agent.min_confidence == 0.0
 
