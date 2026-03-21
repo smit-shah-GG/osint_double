@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 Phase: 12 of 17 (API Layer & Pipeline Events)
 Plan: 3 of 4
 Status: In progress
-Last activity: 2026-03-21 — Completed 12-03-PLAN.md (data-serving API routes: facts, reports, sources, graph)
+Last activity: 2026-03-21 — Completed 12-02-PLAN.md (investigation routes + SSE streaming)
 
-Progress: [███████████░░░░░░░░░] 52/TBD plans (v1.0 complete, v2.0: 7/8+ Phase 12 plans 1,3 done)
+Progress: [███████████░░░░░░░░░] 53/TBD plans (v1.0 complete, v2.0: 8/8+ Phase 12 plans 1,2,3 done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [███████████░░░░░░░░░] 52/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 7
-- Average duration: 4.7 min
-- Total execution time: 32.8 min
+- Total plans completed: 8
+- Average duration: 5.0 min
+- Total execution time: 40.1 min
 
 ## Accumulated Context
 
@@ -42,6 +42,9 @@ Recent decisions affecting current work:
 - [D12-01-01] API schemas fully decoupled from internal pipeline models (zero imports)
 - [D12-01-02] Event bus uses synchronous emit (GIL-protected, no asyncio.Lock needed for single event loop)
 - [D12-01-03] Valid transition graph enforced in registry with ConflictError for violations
+- [D12-02-01] Pipeline wrapper calls runner phases individually for event emission and cancellation
+- [D12-02-02] SSE uses raw_data field to prevent double JSON serialization by FastAPI
+- [D12-02-03] Regenerate bypasses transition graph under lock (COMPLETED->RUNNING is special case)
 - [D12-03-01] Dual store resolution: investigation_stores dict with app.state direct fallback
 - [D12-03-02] Graph adapter resolved from graph_adapters dict or pipeline._adapter
 
@@ -63,5 +66,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Completed 12-03-PLAN.md
+Stopped at: Completed 12-02-PLAN.md, ready to execute 12-04-PLAN.md
 Resume file: None
