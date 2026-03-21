@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-22 — Phase 12 complete and verified (4 plans, 3 waves, 10 requirements)
+Plan: 1 of 7
+Status: In progress
+Last activity: 2026-03-22 — Completed 13-01-PLAN.md (Database Infrastructure)
 
-Progress: [████████████░░░░░░░░] 57/TBD plans (v1.0 complete, v2.0: 12/12+ Phase 12 all 4 plans done)
+Progress: [████████████░░░░░░░░] 58/TBD plans (v1.0 complete, v2.0: 13 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [████████████░░░░░░░░] 57/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 12
-- Average duration: 4.5 min
-- Total execution time: 53.2 min
+- Total plans completed: 13
+- Average duration: 4.3 min
+- Total execution time: 56.2 min
 
 ## Accumulated Context
 
@@ -48,6 +48,9 @@ Recent decisions affecting current work:
 - [D12-03-01] Dual store resolution: investigation_stores dict with app.state direct fallback
 - [D12-03-02] Graph adapter resolved from graph_adapters dict or pipeline._adapter
 - [D12-04-01] Lifespan context manager for graceful shutdown (not deprecated on_event)
+- [D13-01-01] expire_on_commit=False mandatory for async sessions (prevents MissingGreenlet)
+- [D13-01-02] Dual driver pattern: asyncpg for queries, psycopg for pgvector type registration
+- [D13-01-03] Models Base stub created in Plan 01 so migrations/env.py import resolves immediately
 
 ### Roadmap Evolution
 
@@ -67,5 +70,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed Phase 12 (all 4 plans). Ready for Phase 13 (SQLite Persistence).
+Stopped at: Completed 13-01-PLAN.md (Database Infrastructure). Ready for 13-02 (ORM Models).
 Resume file: None
