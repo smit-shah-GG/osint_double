@@ -46,23 +46,34 @@ MODEL_MAP: dict[str, str] = {
     # Reasoning tier (synthesis fallback)
     "deepseek-r1": "deepseek/deepseek-r1-0528",
     "deepseek-r1-0528": "deepseek/deepseek-r1-0528",
+    "deepseek-v3.2": "deepseek/deepseek-v3.2",
     # Free tier (fallback)
+    "nemotron-super-120b": "nvidia/nemotron-3-super-120b-a12b:free",
     "hermes-405b": "nousresearch/hermes-3-llama-3.1-405b:free",
 }
 
 # Fallback chains: if primary model fails (429/5xx), try next in chain
 FALLBACK_CHAINS: dict[str, list[str]] = {
-    # Extraction: Qwen 3.5 Flash → Hermes 405B (free)
+    # Extraction: Flash Lite → Nemotron 120B (free) → Hermes 405B (free)
+    "google/gemini-3.1-flash-lite-preview": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+    ],
     "qwen/qwen3.5-flash-02-23": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
         "nousresearch/hermes-3-llama-3.1-405b:free",
     ],
-    # Synthesis: DeepSeek R1 → Hermes 405B (free)
-    "deepseek/deepseek-r1-0528": [
+    # Synthesis: Gemini 2.5 Pro → DeepSeek V3.2 → Hermes 405B (free)
+    "google/gemini-2.5-pro-preview": [
+        "deepseek/deepseek-v3.2",
         "nousresearch/hermes-3-llama-3.1-405b:free",
     ],
-    # Synthesis (if Gemini Pro used): Gemini Pro → DeepSeek R1 → Hermes 405B (free)
     "google/gemini-2.5-pro-preview-06-05": [
-        "deepseek/deepseek-r1-0528",
+        "deepseek/deepseek-v3.2",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+    ],
+    "deepseek/deepseek-r1-0528": [
+        "deepseek/deepseek-v3.2",
         "nousresearch/hermes-3-llama-3.1-405b:free",
     ],
 }
@@ -71,6 +82,16 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Status codes that trigger fallback
 _RETRIABLE_STATUSES = {429, 500, 502, 503, 529}
+
+# Warn-once for fallback transitions: set of (primary, fallback) tuples.
+# Logs each unique model transition only once per investigation run to
+# eliminate fallback chain log spam.
+_warned_transitions: set[tuple[str, str]] = set()
+
+
+def reset_fallback_warnings() -> None:
+    """Reset warn-once state. Call at start of each investigation run."""
+    _warned_transitions.clear()
 
 
 @dataclass
@@ -116,12 +137,16 @@ class _SyncModels:
                 return _Response(text=text)
             except openai.APIStatusError as e:
                 if e.status_code in _RETRIABLE_STATUSES and attempt_model != models_to_try[-1]:
-                    logger.warning(
-                        "model_fallback",
-                        model=attempt_model,
-                        status=e.status_code,
-                        next=models_to_try[models_to_try.index(attempt_model) + 1],
-                    )
+                    next_model = models_to_try[models_to_try.index(attempt_model) + 1]
+                    transition = (attempt_model, next_model)
+                    if transition not in _warned_transitions:
+                        _warned_transitions.add(transition)
+                        logger.warning(
+                            "model_fallback",
+                            model=attempt_model,
+                            status=e.status_code,
+                            next=next_model,
+                        )
                     last_error = e
                     continue
                 raise
@@ -195,12 +220,16 @@ class _AsyncModels:
                 return _Response(text=text)
             except openai.APIStatusError as e:
                 if e.status_code in _RETRIABLE_STATUSES and attempt_model != models_to_try[-1]:
-                    logger.warning(
-                        "model_fallback",
-                        model=attempt_model,
-                        status=e.status_code,
-                        next=models_to_try[models_to_try.index(attempt_model) + 1],
-                    )
+                    next_model = models_to_try[models_to_try.index(attempt_model) + 1]
+                    transition = (attempt_model, next_model)
+                    if transition not in _warned_transitions:
+                        _warned_transitions.add(transition)
+                        logger.warning(
+                            "model_fallback",
+                            model=attempt_model,
+                            status=e.status_code,
+                            next=next_model,
+                        )
                     last_error = e
                     continue
                 raise

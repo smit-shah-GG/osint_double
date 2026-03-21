@@ -677,6 +677,10 @@ class InvestigationRunner:
     async def _phase_extract(self) -> dict[str, Any]:
         self.console.print("\n[bold cyan]══ Phase 2: Fact Extraction ══[/bold cyan]")
 
+        # Reset warn-once state so each investigation run logs fresh transitions
+        from osint_system.llm.openrouter_client import reset_fallback_warnings
+        reset_fallback_warnings()
+
         pipeline = ExtractionPipeline(
             article_store=self.article_store,
             fact_store=self.fact_store,

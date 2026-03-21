@@ -16,6 +16,7 @@ Features:
 """
 
 import asyncio
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -42,6 +43,23 @@ class PipelineStats:
             "facts_consolidated": self.facts_consolidated,
             "error_count": len(self.errors),
         }
+
+
+@dataclass
+class ExtractionMetrics:
+    """Per-model extraction success/failure tracking."""
+
+    model_id: str
+    success_count: int = 0
+    failure_count: int = 0
+    repair_count: int = 0
+    total_facts: int = 0
+    total_duration_ms: float = 0.0
+
+    @property
+    def success_rate(self) -> float:
+        total = self.success_count + self.failure_count
+        return self.success_count / total if total > 0 else 0.0
 
 
 class ExtractionPipeline:
@@ -104,6 +122,7 @@ class ExtractionPipeline:
 
         self.logger = logger.bind(component="ExtractionPipeline")
         self.stats = PipelineStats()
+        self._model_metrics: Dict[str, ExtractionMetrics] = {}
 
         self.logger.info(
             "ExtractionPipeline initialized",
@@ -214,15 +233,40 @@ class ExtractionPipeline:
         all_facts: List[Dict[str, Any]] = []
         sem = asyncio.Semaphore(self.MAX_CONCURRENT_EXTRACTIONS)
         completed = 0
+        self._model_metrics = {}  # Reset per-run
 
         async def _extract_one(article: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
             nonlocal completed
             async with sem:
+                start = time.monotonic()
                 content = self._article_to_content(article, investigation_id)
                 result = await self._extract_with_error_handling(content)
+                elapsed_ms = (time.monotonic() - start) * 1000
                 completed += 1
-                if completed % 10 == 0:
-                    self.logger.info(f"Progress: {completed}/{len(articles)} articles")
+
+                # Per-article logging
+                url = article.get("url", "unknown")[:80]
+                fact_count = len(result) if result else 0
+                self.logger.info(
+                    "article_extracted",
+                    url=url,
+                    facts=fact_count,
+                    duration_ms=round(elapsed_ms, 1),
+                    progress=f"{completed}/{len(articles)}",
+                )
+
+                # Update model metrics
+                model_id = self.extraction_agent.model_name
+                if model_id not in self._model_metrics:
+                    self._model_metrics[model_id] = ExtractionMetrics(model_id=model_id)
+                metrics = self._model_metrics[model_id]
+                if result is not None:
+                    metrics.success_count += 1
+                    metrics.total_facts += fact_count
+                else:
+                    metrics.failure_count += 1
+                metrics.total_duration_ms += elapsed_ms
+
                 return result
 
         tasks = [_extract_one(article) for article in articles]
@@ -236,6 +280,19 @@ class ExtractionPipeline:
                 self.stats.articles_failed += 1
 
         self.stats.facts_extracted = len(all_facts)
+
+        # End-of-run extraction summary
+        for model_id, metrics in self._model_metrics.items():
+            total = metrics.success_count + metrics.failure_count
+            self.logger.info(
+                "extraction_summary",
+                model=model_id,
+                success=metrics.success_count,
+                failures=metrics.failure_count,
+                total_facts=metrics.total_facts,
+                success_rate=f"{metrics.success_rate:.1%}",
+                avg_ms=round(metrics.total_duration_ms / max(1, total), 1),
+            )
 
         # Consolidate facts
         if all_facts and not skip_consolidation:
