@@ -55,6 +55,30 @@ def _compute_content_hash(content: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
 
+def _parse_dt(value: Any) -> datetime | None:
+    """Parse an ISO datetime string to a timezone-aware datetime, or None."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        # Python 3.11 fromisoformat handles Z suffix
+        s = s.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            return None
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Migration functions
 # ---------------------------------------------------------------------------
@@ -333,7 +357,7 @@ async def migrate_reports(
                     markdown_content=markdown_content,
                     markdown_path=str(md_path) if md_path else None,
                     synthesis_summary=synthesis_summary,
-                    generated_at=report.get("generated_at"),
+                    generated_at=_parse_dt(report.get("generated_at")),
                     embedding=embedding,
                 ).on_conflict_do_nothing(index_elements=["investigation_id", "version"])
 
