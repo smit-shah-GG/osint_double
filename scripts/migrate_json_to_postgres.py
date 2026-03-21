@@ -76,35 +76,32 @@ async def migrate_articles(
                 if not url:
                     continue
 
-                article_id = _compute_article_id(url)
-                content = article.get("content", "")
-                title = article.get("title", "")
+                # Use from_dict which handles column mapping correctly
+                model = ArticleModel.from_dict(article, investigation_id)
 
-                # Build embedding if service available
-                embedding = None
-                if embedding_service and content:
+                # Generate embedding if service available
+                if embedding_service and model.content:
                     try:
-                        embedding = embedding_service.embed_sync(
-                            f"{title} {content}"[:2000]
-                        )
+                        text = f"{model.title or ''} {model.content}"[:2000]
+                        model.embedding = embedding_service.embed_sync(text)
                     except Exception:
                         pass
 
+                # Upsert via ON CONFLICT on article_id (unique)
                 stmt = pg_insert(ArticleModel).values(
-                    id=article_id,
-                    investigation_id=investigation_id,
-                    article_id=article_id,
-                    url=url,
-                    title=title,
-                    content=content,
-                    content_hash=_compute_content_hash(content) if content else "",
-                    published_date=article.get("published_date", ""),
-                    source=article.get("source"),
-                    metadata_=article.get("metadata"),
-                    stored_at=article.get("stored_at"),
-                    retrieved_at=datetime.now(timezone.utc),
-                    embedding=embedding,
-                ).on_conflict_do_nothing(index_elements=["id"])
+                    article_id=model.article_id,
+                    investigation_id=model.investigation_id,
+                    url=model.url,
+                    title=model.title,
+                    content=model.content,
+                    published_date=model.published_date,
+                    source_name=model.source_name,
+                    source_domain=model.source_domain,
+                    stored_at=model.stored_at,
+                    source_metadata=model.source_metadata,
+                    article_metadata=model.article_metadata,
+                    embedding=model.embedding,
+                ).on_conflict_do_nothing(index_elements=["article_id"])
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:
@@ -141,40 +138,41 @@ async def migrate_facts(
                         pass
 
                 stmt = pg_insert(FactModel).values(
-                    id=fact_id,
                     investigation_id=investigation_id,
                     fact_id=fact_id,
                     content_hash=fact.get("content_hash", ""),
                     claim_text=claim_text,
                     assertion_type=(
-                        claim.get("assertion_type", "states")
+                        claim.get("assertion_type", "statement")
                         if isinstance(claim, dict)
-                        else "states"
+                        else "statement"
                     ),
+                    claim_clarity=float(claim.get("claim_clarity", 0.5)) if isinstance(claim, dict) else 0.5,
+                    extraction_confidence=float(fact.get("quality", {}).get("extraction_confidence", 0.5) if isinstance(fact.get("quality"), dict) else 0.5),
+                    source_url=fact.get("provenance", {}).get("source_url", "") if isinstance(fact.get("provenance"), dict) else "",
                     entities=fact.get("entities", []),
                     temporal=fact.get("temporal"),
                     numeric=fact.get("numeric"),
                     provenance=fact.get("provenance"),
-                    quality=fact.get("quality"),
-                    extraction=fact.get("extraction"),
+                    quality_metrics=fact.get("quality"),
                     relationships=fact.get("relationships"),
                     variants=fact.get("variants", []),
                     claim_data=claim if isinstance(claim, dict) else {},
                     stored_at=fact.get("stored_at"),
                     embedding=embedding,
-                ).on_conflict_do_nothing(index_elements=["id"])
+                ).on_conflict_do_nothing(index_elements=["fact_id"])
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:
                     fact_count += 1
 
-                # Entity extraction (same logic as FactStore.save_facts)
+                # Entity extraction
                 entities_list = fact.get("entities", [])
                 if isinstance(entities_list, list):
                     for entity_dict in entities_list:
                         if not isinstance(entity_dict, dict):
                             continue
-                        name = entity_dict.get("name", "")
+                        name = entity_dict.get("text", entity_dict.get("name", ""))
                         entity_type = entity_dict.get("type", "UNKNOWN")
                         canonical = entity_dict.get("canonical", name)
                         if not name:
@@ -184,26 +182,22 @@ async def migrate_facts(
                             investigation_id, canonical, entity_type
                         )
 
-                        # Optional entity embedding
                         ent_embedding = None
                         if embedding_service and canonical:
                             try:
-                                ent_embedding = embedding_service.embed_sync(
-                                    canonical
-                                )
+                                ent_embedding = embedding_service.embed_sync(canonical)
                             except Exception:
                                 pass
 
                         ent_stmt = pg_insert(EntityModel).values(
-                            id=eid,
                             investigation_id=investigation_id,
                             entity_id=eid,
                             name=name,
                             entity_type=entity_type,
                             canonical=canonical,
-                            metadata_=entity_dict.get("metadata"),
+                            entity_metadata=entity_dict.get("metadata"),
                             embedding=ent_embedding,
-                        ).on_conflict_do_nothing(index_elements=["id"])
+                        ).on_conflict_do_nothing(index_elements=["entity_id"])
 
                         ent_result = await session.execute(ent_stmt)
                         if ent_result.rowcount > 0:
@@ -229,7 +223,6 @@ async def migrate_classifications(
                 ).hexdigest()[:16]
 
                 stmt = pg_insert(ClassificationModel).values(
-                    id=cls_id,
                     investigation_id=investigation_id,
                     fact_id=fact_id,
                     tier=cls_dict.get("impact_tier", "less_critical"),
@@ -241,8 +234,7 @@ async def migrate_classifications(
                     impact_reasoning=cls_dict.get("impact_reasoning"),
                     history=cls_dict.get("history", []),
                     classification_data=cls_dict,
-                    classified_at=cls_dict.get("classified_at"),
-                ).on_conflict_do_nothing(index_elements=["id"])
+                ).on_conflict_do_nothing(index_elements=["fact_id"])
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:
@@ -268,20 +260,20 @@ async def migrate_verifications(
                 ).hexdigest()[:16]
 
                 stmt = pg_insert(VerificationModel).values(
-                    id=ver_id,
                     investigation_id=investigation_id,
                     fact_id=fact_id,
                     status=ver_dict.get("status", "pending"),
-                    confidence=ver_dict.get("final_confidence", 0.0),
+                    final_confidence=ver_dict.get("final_confidence", 0.0),
                     original_confidence=ver_dict.get("original_confidence", 0.0),
                     confidence_boost=ver_dict.get("confidence_boost", 0.0),
-                    evidence=ver_dict.get("supporting_evidence", []),
+                    supporting_evidence=ver_dict.get("supporting_evidence", []),
                     refuting_evidence=ver_dict.get("refuting_evidence", []),
-                    queries=ver_dict.get("queries_used", []),
+                    queries_used=ver_dict.get("queries_used", []),
+                    search_count=ver_dict.get("query_attempts", 0),
+                    origin_dubious_flags=ver_dict.get("origin_dubious_flags", []),
                     reasoning=ver_dict.get("reasoning"),
                     verification_data=ver_dict,
-                    verified_at=ver_dict.get("verified_at"),
-                ).on_conflict_do_nothing(index_elements=["id"])
+                ).on_conflict_do_nothing(index_elements=["fact_id"])
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:
@@ -329,17 +321,17 @@ async def migrate_reports(
                     markdown_content = Path(md_path).read_text(encoding="utf-8")
 
                 stmt = pg_insert(ReportModel).values(
-                    id=report_id,
                     investigation_id=investigation_id,
                     version=version,
                     content_hash=content_hash or _compute_content_hash(
                         markdown_content
                     ),
-                    markdown=markdown_content,
+                    markdown_content=markdown_content,
+                    markdown_path=str(md_path) if md_path else None,
                     synthesis_summary=synthesis_summary,
                     generated_at=report.get("generated_at"),
                     embedding=embedding,
-                ).on_conflict_do_nothing(index_elements=["id"])
+                ).on_conflict_do_nothing(index_elements=["investigation_id", "version"])
 
                 result = await session.execute(stmt)
                 if result.rowcount > 0:

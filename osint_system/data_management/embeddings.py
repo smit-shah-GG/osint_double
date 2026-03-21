@@ -85,12 +85,18 @@ class EmbeddingService:
         if not text or not text.strip():
             return [0.0] * self._dimension
 
+        text = text[:30000]  # Truncate to stay within model's token limit
+
         loop = asyncio.get_running_loop()
-        vector: np.ndarray = await loop.run_in_executor(
-            None,
-            lambda: self._model.encode(text, normalize_embeddings=True),
-        )
-        return vector.tolist()
+        try:
+            vector: np.ndarray = await loop.run_in_executor(
+                None,
+                lambda: self._model.encode(text, normalize_embeddings=True),
+            )
+            return vector.tolist()
+        except RuntimeError as e:
+            logger.warning("Embedding failed (returning zero vector): %s", e)
+            return [0.0] * self._dimension
 
     async def embed_batch(
         self, texts: list[str], batch_size: int = 32
@@ -130,5 +136,16 @@ class EmbeddingService:
         if not text or not text.strip():
             return [0.0] * self._dimension
 
-        vector: np.ndarray = self._model.encode(text, normalize_embeddings=True)
-        return vector.tolist()
+        # Truncate to avoid CUDA index-out-of-bounds on very long inputs.
+        # gte-large-en-v1.5 max sequence length is 8192 tokens (~32K chars).
+        text = text[:30000]
+
+        try:
+            vector: np.ndarray = self._model.encode(
+                text, normalize_embeddings=True
+            )
+            return vector.tolist()
+        except RuntimeError as e:
+            # CUDA assertion failures on malformed input — return zero vector
+            logger.warning("Embedding failed (returning zero vector): %s", e)
+            return [0.0] * self._dimension
