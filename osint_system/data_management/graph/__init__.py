@@ -1,11 +1,13 @@
 """Graph layer package for knowledge graph storage and querying.
 
 Provides the GraphAdapter Protocol, Pydantic graph schemas, EdgeType enum,
-and both adapter implementations (Neo4j for production, NetworkX for tests/CI).
+and adapter implementations (Memgraph for production, Neo4j legacy,
+NetworkX for tests/CI).
 
 Primary exports:
-- GraphAdapter: Protocol defining the graph interface (Neo4j/NetworkX backends)
-- Neo4jAdapter: Production graph backend using official Neo4j async driver
+- GraphAdapter: Protocol defining the graph interface
+- MemgraphAdapter: Production graph backend using Memgraph via Bolt protocol
+- Neo4jAdapter: Legacy adapter (preserved until wiring plan 13-07 updates consumers)
 - NetworkXAdapter: In-memory graph backend for tests/CI (no Docker dependency)
 - GraphNode, GraphEdge: Typed node/edge models for query results
 - QueryResult: Container for structured graph query results
@@ -14,14 +16,14 @@ Primary exports:
 
 Usage:
     from osint_system.data_management.graph import (
-        GraphAdapter, Neo4jAdapter, NetworkXAdapter,
+        GraphAdapter, MemgraphAdapter, NetworkXAdapter,
         GraphNode, GraphEdge, QueryResult, EdgeType,
         compute_edge_weight,
     )
 
-    # Production: Neo4j backend
+    # Production: Memgraph backend
     config = GraphConfig.from_env()
-    async with Neo4jAdapter(config) as adapter:
+    async with MemgraphAdapter(config) as adapter:
         await adapter.merge_node("Fact", {"fact_id": "f-1"}, "fact_id")
 
     # Tests/CI: NetworkX backend (no Docker)
@@ -30,6 +32,7 @@ Usage:
 """
 
 from osint_system.data_management.graph.adapter import GraphAdapter
+from osint_system.data_management.graph.memgraph_adapter import MemgraphAdapter
 from osint_system.data_management.graph.neo4j_adapter import Neo4jAdapter
 from osint_system.data_management.graph.networkx_adapter import NetworkXAdapter
 from osint_system.data_management.graph.schema import (
@@ -42,6 +45,7 @@ from osint_system.data_management.graph.schema import (
 
 __all__ = [
     "GraphAdapter",
+    "MemgraphAdapter",
     "Neo4jAdapter",
     "NetworkXAdapter",
     "GraphNode",

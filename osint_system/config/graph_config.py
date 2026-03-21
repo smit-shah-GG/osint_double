@@ -1,24 +1,24 @@
-"""Neo4j graph database configuration.
+"""Memgraph graph database configuration.
 
-Provides GraphConfig for Neo4j connection settings and graph layer behavior.
+Provides GraphConfig for Memgraph connection settings and graph layer behavior.
 Loads from environment variables with sensible defaults for local development.
 
 This module has zero dependency on the neo4j driver -- it is pure configuration.
-The actual driver is only imported by the adapter implementations (neo4j_adapter.py).
+The actual driver is only imported by the adapter implementations
+(memgraph_adapter.py, neo4j_adapter.py).
 
 Environment variables:
-    NEO4J_URI: Bolt URI for Neo4j connection (default: bolt://localhost:7687)
-    NEO4J_USER: Neo4j username (default: neo4j)
-    NEO4J_PASSWORD: Neo4j password (default: osint_dev_password)
-    NEO4J_DATABASE: Neo4j database name (default: neo4j)
-    GRAPH_USE_NETWORKX: Force NetworkX backend even if Neo4j is available (default: false)
+    MEMGRAPH_URI: Bolt URI for Memgraph connection (default: bolt://localhost:7687)
+    MEMGRAPH_USER: Memgraph username (default: empty -- Memgraph CE has no auth)
+    MEMGRAPH_PASSWORD: Memgraph password (default: empty)
+    GRAPH_USE_NETWORKX: Force NetworkX backend even if Memgraph is available (default: false)
     GRAPH_LLM_EXTRACTION: Enable LLM-based relationship extraction (default: false)
 
 Usage:
     from osint_system.config.graph_config import GraphConfig
 
     config = GraphConfig.from_env()
-    print(config.neo4j_uri)  # bolt://localhost:7687
+    print(config.memgraph_uri)  # bolt://localhost:7687
 """
 
 import os
@@ -46,19 +46,20 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
 
 
 class GraphConfig(BaseModel):
-    """Neo4j connection and graph layer configuration.
+    """Memgraph connection and graph layer configuration.
 
     All fields have sensible defaults for local development with Docker Compose.
     Use ``from_env()`` to load from environment variables.
 
+    Memgraph CE has a single database (no database selection parameter) and
+    no authentication by default. User/password fields default to empty strings.
+
     Attributes:
-        neo4j_uri: Bolt protocol URI for Neo4j. Docker default: bolt://localhost:7687.
-        neo4j_user: Neo4j authentication username.
-        neo4j_password: Neo4j authentication password. Override for production.
-        neo4j_database: Neo4j database name. Community Edition always uses "neo4j".
-        use_networkx_fallback: Force NetworkX in-memory backend instead of Neo4j.
-            Useful for tests and CI where Docker is unavailable. Production
-            hard-requires Neo4j per CONTEXT.md.
+        memgraph_uri: Bolt protocol URI for Memgraph. Docker default: bolt://localhost:7687.
+        memgraph_user: Memgraph authentication username. Empty for CE (no auth).
+        memgraph_password: Memgraph authentication password. Empty for CE (no auth).
+        use_networkx_fallback: Force NetworkX in-memory backend instead of Memgraph.
+            Useful for tests and CI where Docker is unavailable.
         batch_size: UNWIND batch size for bulk node/edge ingestion. Higher values
             improve throughput but increase transaction memory. Range: 100-50000.
         max_hops: Default maximum traversal depth for path queries. Bounded to
@@ -72,25 +73,21 @@ class GraphConfig(BaseModel):
             investigations are linked with ``cross_investigation=True`` edges.
     """
 
-    neo4j_uri: str = Field(
+    memgraph_uri: str = Field(
         default="bolt://localhost:7687",
-        description="Bolt URI for Neo4j connection",
+        description="Bolt URI for Memgraph connection",
     )
-    neo4j_user: str = Field(
-        default="neo4j",
-        description="Neo4j authentication username",
+    memgraph_user: str = Field(
+        default="",
+        description="Memgraph authentication username (empty for CE -- no auth)",
     )
-    neo4j_password: str = Field(
-        default="osint_dev_password",
-        description="Neo4j authentication password",
-    )
-    neo4j_database: str = Field(
-        default="neo4j",
-        description="Neo4j database name (Community Edition: always 'neo4j')",
+    memgraph_password: str = Field(
+        default="",
+        description="Memgraph authentication password (empty for CE -- no auth)",
     )
     use_networkx_fallback: bool = Field(
         default=False,
-        description="Force NetworkX backend instead of Neo4j",
+        description="Force NetworkX backend instead of Memgraph",
     )
     batch_size: int = Field(
         default=5000,
@@ -117,7 +114,7 @@ class GraphConfig(BaseModel):
     def from_env(cls) -> "GraphConfig":
         """Load configuration from environment variables.
 
-        Reads NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, NEO4J_DATABASE,
+        Reads MEMGRAPH_URI, MEMGRAPH_USER, MEMGRAPH_PASSWORD,
         GRAPH_USE_NETWORKX, and GRAPH_LLM_EXTRACTION from the environment.
         Falls back to field defaults when variables are not set.
 
@@ -142,21 +139,17 @@ class GraphConfig(BaseModel):
 
         kwargs: dict = {}
 
-        uri = os.getenv("NEO4J_URI")
+        uri = os.getenv("MEMGRAPH_URI")
         if uri:
-            kwargs["neo4j_uri"] = uri
+            kwargs["memgraph_uri"] = uri
 
-        user = os.getenv("NEO4J_USER")
+        user = os.getenv("MEMGRAPH_USER")
         if user:
-            kwargs["neo4j_user"] = user
+            kwargs["memgraph_user"] = user
 
-        password = os.getenv("NEO4J_PASSWORD")
+        password = os.getenv("MEMGRAPH_PASSWORD")
         if password:
-            kwargs["neo4j_password"] = password
-
-        database = os.getenv("NEO4J_DATABASE")
-        if database:
-            kwargs["neo4j_database"] = database
+            kwargs["memgraph_password"] = password
 
         use_nx = os.getenv("GRAPH_USE_NETWORKX")
         if use_nx is not None:
@@ -194,10 +187,9 @@ class GraphConfig(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "neo4j_uri": "bolt://localhost:7687",
-                    "neo4j_user": "neo4j",
-                    "neo4j_password": "osint_dev_password",
-                    "neo4j_database": "neo4j",
+                    "memgraph_uri": "bolt://localhost:7687",
+                    "memgraph_user": "",
+                    "memgraph_password": "",
                     "use_networkx_fallback": False,
                     "batch_size": 5000,
                     "max_hops": 3,
