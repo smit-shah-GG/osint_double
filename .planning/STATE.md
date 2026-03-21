@@ -5,11 +5,11 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 13 — SQLite Storage Migration
+**Current focus:** Phase 13 — PostgreSQL + Memgraph Migration
 
 ## Current Position
 
-Phase: 13 of 17 (SQLite Storage Migration)
+Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
 Plan: —
 Status: Ready to plan
 Last activity: 2026-03-22 — Phase 12 complete and verified (4 plans, 3 waves, 10 requirements)

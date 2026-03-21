@@ -121,7 +121,7 @@ Plans:
 
 - [x] **Phase 11: Crawler Hardening & Pipeline Quality** - Fix crawler fragility, extraction drops, verification coverage gaps
 - [x] **Phase 12: API Layer & Pipeline Events** - REST API endpoints, event bus, SSE streaming for frontend consumption
-- [ ] **Phase 13: SQLite Storage Migration** - Replace in-memory+JSON stores with SQLAlchemy+SQLite persistence
+- [ ] **Phase 13: PostgreSQL + Memgraph Migration** - Replace in-memory+JSON stores with PostgreSQL+pgvector, replace NetworkX with Memgraph
 - [ ] **Phase 14: Next.js Frontend Shell** - Monorepo setup, App Router, investigation launch and live progress
 - [ ] **Phase 15: Report Viewer & Knowledge Graph** - Analytical report display, fact drill-down, interactive graph visualization
 - [ ] **Phase 16: Feature Completion & Deployment** - Source management, configuration profiles, cost tracking, Docker deployment
@@ -163,15 +163,18 @@ Plans:
 - [x] 12-03-PLAN.md — Facts, reports, sources, and graph data routes
 - [x] 12-04-PLAN.md — App factory, serve.py wiring, OpenAPI verification
 
-### Phase 13: SQLite Storage Migration
-**Goal**: All investigation data persists durably in SQLite, surviving process restarts, with no behavioral changes to pipeline or API code
+### Phase 13: PostgreSQL + Memgraph Migration
+**Goal**: All investigation data persists durably in PostgreSQL with pgvector embeddings, knowledge graph persists in Memgraph with MAGE algorithms, surviving process restarts with no behavioral changes to pipeline or API code
 **Depends on**: Phase 12
 **Requirements**: STORE-01, STORE-02, STORE-03, STORE-04, STORE-05, STORE-06
 **Success Criteria** (what must be TRUE):
-  1. An investigation completed before server restart is fully available after restart with all articles, facts, classifications, verifications, and report data intact
-  2. Concurrent API reads during an active pipeline run do not block or produce stale data (WAL mode verified)
+  1. An investigation completed before server restart is fully available after restart with all articles, facts, classifications, verifications, and report data intact in PostgreSQL
+  2. Concurrent API reads during an active pipeline run do not block or produce stale data
   3. Existing pipeline and agent code runs without modification against the new store implementations (interface contract preserved)
-  4. A migration script converts existing JSON-persisted investigation data into the SQLite database, and Alembic manages schema versioning for future changes
+  4. A migration script converts existing JSON-persisted investigation data into PostgreSQL, Alembic manages schema versioning, and knowledge graph nodes/edges persist in Memgraph across restarts
+  5. Facts, articles, entities, and reports have pgvector embedding columns populated by local gte-large-en-v1.5 model, enabling semantic similarity queries
+  6. Full-text search via tsvector + GIN indexes works on fact claim text and article content
+  7. Memgraph runs MAGE algorithms (PageRank, community detection, betweenness centrality) on ingested graph data post-pipeline
 **Plans**: TBD
 
 ### Phase 14: Next.js Frontend Shell
@@ -236,7 +239,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16 → 17
 | 10. Analysis & Reporting Engine | v1.0 | 5/5 | Complete | 2026-03-14 |
 | 11. Crawler Hardening & Pipeline Quality | v2.0 | 4/4 | Complete | 2026-03-21 |
 | 12. API Layer & Pipeline Events | v2.0 | 4/4 | Complete | 2026-03-22 |
-| 13. SQLite Storage Migration | v2.0 | 0/TBD | Not started | - |
+| 13. PostgreSQL + Memgraph Migration | v2.0 | 0/TBD | Not started | - |
 | 14. Next.js Frontend Shell | v2.0 | 0/TBD | Not started | - |
 | 15. Report Viewer & Knowledge Graph | v2.0 | 0/TBD | Not started | - |
 | 16. Feature Completion & Deployment | v2.0 | 0/TBD | Not started | - |
