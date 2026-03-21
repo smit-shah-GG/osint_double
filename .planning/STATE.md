@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: 4 of 7
+Plan: 5 of 7
 Status: In progress
-Last activity: 2026-03-22 — Completed 13-04-PLAN.md (ArticleStore + FactStore PostgreSQL Migration)
+Last activity: 2026-03-22 — Completed 13-05-PLAN.md (Classification + Verification + Report Store Migration)
 
-Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 16 plans done)
+Progress: [████████████░░░░░░░░] 60/TBD plans (v1.0 complete, v2.0: 17 plans done)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [████████████░░░░░░░░] 60/TBD 
 - Total execution time: 804 min
 
 **v2.0:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 4.5 min
-- Total execution time: 72.7 min
+- Total execution time: 76.7 min
 
 ## Accumulated Context
 
@@ -60,6 +60,7 @@ Recent decisions affecting current work:
 - [D13-04-01] Upsert via INSERT ON CONFLICT DO UPDATE on article_id for URL deduplication
 - [D13-04-02] Entity extraction uses deterministic hash of (investigation_id, canonical, entity_type) for entity_id
 - [D13-04-03] Entity extraction wrapped in try/except per entity -- failure does not abort fact save
+- [D13-05-01] session_factory with None default falls back to get_session_factory() -- preserves 30+ no-arg call sites
 
 ### Roadmap Evolution
 
@@ -79,5 +80,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Completed 13-04-PLAN.md (ArticleStore + FactStore PostgreSQL Migration).
+Stopped at: Completed 13-05-PLAN.md (Classification + Verification + Report Store Migration).
 Resume file: None
