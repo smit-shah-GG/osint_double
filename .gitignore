@@ -1,5 +1,8 @@
 .aider*
 
+# Investigation data (generated at runtime)
+data/
+
 # Python
 .venv/
 __pycache__/
