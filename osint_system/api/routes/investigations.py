@@ -415,9 +415,40 @@ async def list_investigations(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
 ) -> PaginatedResponse[InvestigationResponse]:
-    """List all investigations with pagination."""
+    """List all investigations with pagination.
+
+    Merges in-memory registry (active/recent) with PostgreSQL-persisted
+    investigations discovered via distinct investigation_id in articles table.
+    """
     registry = request.app.state.investigation_registry
     all_investigations = registry.list_all()
+    known_ids = {inv.id for inv in all_investigations}
+
+    # Discover persisted investigations not in registry (e.g. migrated data)
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory is not None:
+        from sqlalchemy import distinct, select
+        from osint_system.data_management.models.article import ArticleModel
+
+        try:
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(distinct(ArticleModel.investigation_id))
+                )
+                db_inv_ids = {row[0] for row in result.all()}
+
+                for inv_id in db_inv_ids - known_ids:
+                    all_investigations.append(
+                        Investigation(
+                            id=inv_id,
+                            objective="(migrated investigation)",
+                            status=InvestigationStatus.COMPLETED,
+                        )
+                    )
+        except Exception as e:
+            logger.debug("db_investigation_discovery_failed", error=str(e))
+
+    all_investigations.sort(key=lambda inv: inv.created_at, reverse=True)
     responses = [_investigation_to_response(inv) for inv in all_investigations]
     return PaginatedResponse.from_items(responses, page, page_size)
 
