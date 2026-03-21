@@ -25,6 +25,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import random
+from urllib.parse import urlparse
+
 import aiohttp
 import feedparser
 import structlog
@@ -32,6 +35,10 @@ import trafilatura
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+from osint_system.agents.crawlers.web_crawler import (
+    BrowserPool, is_cloudflare_challenge, USER_AGENTS,
+)
 
 # ── stores ──────────────────────────────────────────────────────────
 from osint_system.data_management.article_store import ArticleStore
@@ -501,16 +508,102 @@ class InvestigationRunner:
                 return await loop.run_in_executor(None, _fetch_article_sync, u)
 
         articles: list[dict] = []
+        failed_entries: list[dict[str, str]] = []
         tasks = [_bounded_fetch(u) for u in urls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
+        for entry, r in zip(deduped, results):
             if isinstance(r, dict):
                 articles.append(r)
+            else:
+                failed_entries.append(entry)
 
         self.console.print(
             f"  Fetched [green]{len(articles)}[/green] articles "
             f"from {len(urls)} URLs"
         )
+
+        # ── BrowserPool fallback for JS-heavy / Cloudflare-blocked sites ──
+        if failed_entries:
+            self.console.print(
+                f"  Attempting Playwright fallback for "
+                f"[yellow]{len(failed_entries)}[/yellow] failed fetches ..."
+            )
+            browser_pool = BrowserPool(max_contexts=5)
+            try:
+                await browser_pool.start()
+                pw_sem = asyncio.Semaphore(5)
+
+                async def _pw_fetch(entry: dict[str, str]) -> dict[str, Any] | None:
+                    async with pw_sem:
+                        url = entry["url"]
+                        ua = random.choice(USER_AGENTS)
+                        try:
+                            html = await browser_pool.fetch(url, ua, 15_000)
+                            if not html:
+                                return None
+                            # Extract text from HTML using trafilatura
+                            text = trafilatura.extract(
+                                html,
+                                favor_precision=True,
+                                deduplicate=True,
+                                include_comments=False,
+                                include_tables=True,
+                            )
+                            if not text or len(text) < 200:
+                                return None
+                            domain = urlparse(url).netloc.lower().removeprefix("www.")
+                            source_type = "news_outlet"
+                            authority = 0.6
+                            if any(d in domain for d in ("reuters", "apnews")):
+                                source_type, authority = "wire_service", 0.9
+                            elif domain.endswith((".gov", ".mil")):
+                                source_type, authority = "official_statement", 0.9
+                            elif domain.endswith(".edu"):
+                                source_type, authority = "academic", 0.85
+                            elif any(
+                                d in domain
+                                for d in ("bbc", "nytimes", "theguardian", "washingtonpost")
+                            ):
+                                authority = 0.8
+                            return {
+                                "url": url,
+                                "title": entry.get("title", url.split("/")[-1]),
+                                "content": text,
+                                "published_date": entry.get("published", ""),
+                                "source": {
+                                    "name": domain,
+                                    "type": source_type,
+                                    "authority_score": authority,
+                                },
+                                "metadata": {
+                                    "domain": domain,
+                                    "content_source": "playwright_fallback",
+                                    "content_length": len(text),
+                                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                                },
+                            }
+                        except Exception as exc:
+                            logger.debug(
+                                "pw_fetch_failed",
+                                url=url[:80],
+                                error=str(exc),
+                            )
+                            return None
+
+                pw_tasks = [_pw_fetch(e) for e in failed_entries]
+                pw_results = await asyncio.gather(*pw_tasks, return_exceptions=True)
+                pw_recovered = 0
+                for r in pw_results:
+                    if isinstance(r, dict):
+                        articles.append(r)
+                        pw_recovered += 1
+                if pw_recovered:
+                    self.console.print(
+                        f"  Playwright fallback recovered: "
+                        f"[green]{pw_recovered}[/green] articles"
+                    )
+            finally:
+                await browser_pool.stop()
 
         if articles:
             stats = await self.article_store.save_articles(
