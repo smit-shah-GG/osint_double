@@ -681,7 +681,10 @@ class InvestigationRunner:
             article_store=self.article_store,
             fact_store=self.fact_store,
         )
-        result = await pipeline.process_investigation(self.investigation_id)
+        result = await pipeline.process_investigation(
+            self.investigation_id,
+            objective=self.objective,
+        )
 
         self.console.print(
             f"  Articles processed: {result.get('articles_processed', 0)}\n"
@@ -701,6 +704,7 @@ class InvestigationRunner:
         agent = FactClassificationAgent(
             classification_store=self.classification_store,
             fact_store=self.fact_store,
+            noise_credibility_threshold=0.3,  # VERIFY-01: configurable NOISE threshold
         )
 
         # Retrieve all extracted facts

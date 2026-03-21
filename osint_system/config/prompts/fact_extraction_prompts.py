@@ -153,6 +153,22 @@ PUBLICATION_DATE: {publication_date}
 
 Return ONLY a valid JSON array of fact objects. No other text, no markdown formatting, just the JSON array."""
 
+FACT_EXTRACTION_USER_PROMPT_V2 = """Extract all discrete, verifiable facts from the following source text.
+
+INVESTIGATION OBJECTIVE: {objective}
+Only extract facts relevant to this investigation objective. Skip facts unrelated to the objective.
+When in doubt about relevance, include the fact -- it is better to have noise in the report than miss a real signal.
+
+SOURCE_ID: {source_id}
+SOURCE_TYPE: {source_type}
+PUBLICATION_DATE: {publication_date}
+
+---TEXT START---
+{text}
+---TEXT END---
+
+Return ONLY a valid JSON array of fact objects. No other text, no markdown formatting, just the JSON array."""
+
 FACT_EXTRACTION_CHUNK_PROMPT = """Continue extracting facts from this chunk. Maintain entity ID continuity from previous chunks.
 
 Previous entities encountered: {previous_entities}

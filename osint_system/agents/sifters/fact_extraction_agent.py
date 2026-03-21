@@ -30,6 +30,7 @@ from osint_system.data_management.schemas import (
 from osint_system.config.prompts.fact_extraction_prompts import (
     FACT_EXTRACTION_SYSTEM_PROMPT,
     FACT_EXTRACTION_USER_PROMPT,
+    FACT_EXTRACTION_USER_PROMPT_V2,
     FACT_EXTRACTION_CHUNK_PROMPT,
 )
 
@@ -104,6 +105,7 @@ class FactExtractionAgent(BaseSifter):
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         min_confidence: float = 0.0,  # Default: include all per CONTEXT.md
         gemini_client: Optional[Any] = None,
+        objective: str = "",
     ):
         """
         Initialize FactExtractionAgent.
@@ -115,6 +117,9 @@ class FactExtractionAgent(BaseSifter):
                 Facts below this threshold are filtered. Default 0.0 includes all.
             gemini_client: Optional pre-configured Gemini client.
                 If None, auto-initializes from settings.
+            objective: Investigation objective for relevance filtering.
+                When non-empty, uses objective-aware prompt (V2) to filter
+                irrelevant facts at extraction time.
         """
         super().__init__(
             name="FactExtractionAgent",
@@ -124,12 +129,14 @@ class FactExtractionAgent(BaseSifter):
         self.chunk_size = chunk_size
         self.min_confidence = min_confidence
         self._gemini_client = gemini_client
+        self.objective = objective
 
         self.logger.info(
             "FactExtractionAgent initialized",
             model=model_name,
             chunk_size=chunk_size,
             min_confidence=min_confidence,
+            objective=objective[:80] if objective else "",
         )
 
     @property
@@ -186,6 +193,8 @@ class FactExtractionAgent(BaseSifter):
         source_id = content.get("source_id") or "unknown"
         source_type = content.get("source_type", "unknown")
         pub_date = content.get("publication_date", "")
+        # Prefer per-request objective from content dict, fall back to instance default
+        objective = content.get("objective", self.objective) or ""
 
         # Validate input
         if not text or len(text.strip()) < self.MIN_TEXT_LENGTH:
@@ -198,9 +207,9 @@ class FactExtractionAgent(BaseSifter):
 
         # Handle long documents with chunking
         if len(text) > self.chunk_size:
-            return await self._extract_chunked(text, source_id, source_type, pub_date)
+            return await self._extract_chunked(text, source_id, source_type, pub_date, objective=objective)
 
-        return await self._extract_single(text, source_id, source_type, pub_date)
+        return await self._extract_single(text, source_id, source_type, pub_date, objective=objective)
 
     MAX_RETRIES = 2
 
@@ -210,18 +219,28 @@ class FactExtractionAgent(BaseSifter):
         source_id: str,
         source_type: str,
         pub_date: str,
+        objective: str = "",
     ) -> list[dict]:
         """Extract facts from a single text chunk with retry on failure."""
         if not self.gemini_client:
             self.logger.error("Gemini client not available")
             return []
 
-        prompt = FACT_EXTRACTION_USER_PROMPT.format(
-            source_id=source_id,
-            source_type=source_type,
-            publication_date=pub_date or "unknown",
-            text=text,
-        )
+        if objective:
+            prompt = FACT_EXTRACTION_USER_PROMPT_V2.format(
+                objective=objective,
+                source_id=source_id,
+                source_type=source_type,
+                publication_date=pub_date or "unknown",
+                text=text,
+            )
+        else:
+            prompt = FACT_EXTRACTION_USER_PROMPT.format(
+                source_id=source_id,
+                source_type=source_type,
+                publication_date=pub_date or "unknown",
+                text=text,
+            )
 
         for attempt in range(1, self.MAX_RETRIES + 2):  # 1 initial + MAX_RETRIES
             try:
@@ -276,6 +295,7 @@ class FactExtractionAgent(BaseSifter):
         source_id: str,
         source_type: str,
         pub_date: str,
+        objective: str = "",
     ) -> list[dict]:
         """Extract from long text using chunking with entity continuity."""
         chunks = self._split_into_chunks(text)
@@ -290,9 +310,9 @@ class FactExtractionAgent(BaseSifter):
 
         for i, chunk in enumerate(chunks):
             if i == 0:
-                # First chunk uses standard prompt
+                # First chunk uses standard prompt (with objective if available)
                 chunk_facts = await self._extract_single(
-                    chunk, source_id, source_type, pub_date
+                    chunk, source_id, source_type, pub_date, objective=objective
                 )
             else:
                 # Subsequent chunks maintain entity continuity

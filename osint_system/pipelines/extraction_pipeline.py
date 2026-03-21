@@ -79,6 +79,7 @@ class ExtractionPipeline:
         consolidator: Optional["FactConsolidator"] = None,  # noqa: F821
         fact_store: Optional["FactStore"] = None,  # noqa: F821
         batch_size: int = DEFAULT_BATCH_SIZE,
+        objective: str = "",
     ):
         """
         Initialize extraction pipeline.
@@ -89,6 +90,9 @@ class ExtractionPipeline:
             consolidator: FactConsolidator for dedup/storage. Auto-creates if None.
             fact_store: FactStore for persistence. Auto-creates if None.
             batch_size: Number of articles to process per batch.
+            objective: Investigation objective for relevance filtering.
+                Threaded into extraction content so the LLM only extracts
+                facts relevant to this objective.
         """
         # Lazy initialization - only import when needed
         self._article_store = article_store
@@ -96,6 +100,7 @@ class ExtractionPipeline:
         self._consolidator = consolidator
         self._fact_store = fact_store
         self.batch_size = batch_size
+        self.objective = objective
 
         self.logger = logger.bind(component="ExtractionPipeline")
         self.stats = PipelineStats()
@@ -106,6 +111,7 @@ class ExtractionPipeline:
             article_store_provided=article_store is not None,
             extraction_agent_provided=extraction_agent is not None,
             consolidator_provided=consolidator is not None,
+            objective=objective[:80] if objective else "",
         )
 
     @property
@@ -145,6 +151,7 @@ class ExtractionPipeline:
         investigation_id: str,
         limit: Optional[int] = None,
         skip_consolidation: bool = False,
+        objective: str = "",
     ) -> Dict[str, Any]:
         """
         Process all articles for an investigation through fact extraction.
@@ -156,6 +163,8 @@ class ExtractionPipeline:
             investigation_id: Investigation identifier
             limit: Optional limit on number of articles to process
             skip_consolidation: If True, skip consolidation and return raw facts
+            objective: Investigation objective for relevance filtering.
+                Overrides self.objective for this run if non-empty.
 
         Returns:
             Dictionary with processing statistics:
@@ -170,9 +179,14 @@ class ExtractionPipeline:
         start_time = datetime.now(timezone.utc)
         self.stats = PipelineStats()  # Reset stats
 
+        # Per-run objective override (non-empty objective takes precedence)
+        if objective:
+            self.objective = objective
+
         self.logger.info(
             f"Starting extraction pipeline for {investigation_id}",
             limit=limit,
+            objective=self.objective[:80] if self.objective else "",
         )
 
         # Retrieve articles from ArticleStore
@@ -458,6 +472,7 @@ class ExtractionPipeline:
             "source_id": article.get("url") or f"article-{investigation_id}",
             "source_type": source_type,
             "publication_date": pub_date,
+            "objective": self.objective,  # Thread investigation objective to extraction agent
             "metadata": {
                 "investigation_id": investigation_id,
                 "article_title": title,

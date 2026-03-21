@@ -75,6 +75,7 @@ class FactClassificationAgent(BaseSifter):
         self,
         classification_store: Optional[ClassificationStore] = None,
         fact_store: Optional[FactStore] = None,
+        noise_credibility_threshold: float = 0.3,
     ):
         """
         Initialize fact classification agent.
@@ -82,6 +83,9 @@ class FactClassificationAgent(BaseSifter):
         Args:
             classification_store: Store for classification records (creates default if None)
             fact_store: Store for reading facts (creates default if None)
+            noise_credibility_threshold: Credibility score below which a fact is
+                flagged as NOISE by DubiousDetector. Default 0.3 per CONTEXT.md.
+                Tunable without code changes to the extraction prompt.
         """
         super().__init__(
             name="FactClassificationAgent",
@@ -89,9 +93,13 @@ class FactClassificationAgent(BaseSifter):
         )
         self._classification_store = classification_store
         self._fact_store = fact_store
+        self._noise_credibility_threshold = noise_credibility_threshold
         self.logger = logger.bind(component="FactClassificationAgent")
 
-        self.logger.info("FactClassificationAgent initialized")
+        self.logger.info(
+            "FactClassificationAgent initialized",
+            noise_credibility_threshold=noise_credibility_threshold,
+        )
 
     @property
     def classification_store(self) -> ClassificationStore:
@@ -125,7 +133,9 @@ class FactClassificationAgent(BaseSifter):
     def dubious_detector(self) -> DubiousDetector:
         """Lazy initialization of dubious detector."""
         if not hasattr(self, "_dubious_detector") or self._dubious_detector is None:
-            self._dubious_detector = DubiousDetector()
+            self._dubious_detector = DubiousDetector(
+                noise_credibility_threshold=self._noise_credibility_threshold,
+            )
         return self._dubious_detector
 
     @property
