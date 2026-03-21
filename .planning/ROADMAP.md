@@ -120,7 +120,7 @@ Plans:
 **Milestone Goal:** Harden the pipeline for reliable unattended operation, build a production-quality Next.js frontend, and prepare for deployment.
 
 - [x] **Phase 11: Crawler Hardening & Pipeline Quality** - Fix crawler fragility, extraction drops, verification coverage gaps
-- [ ] **Phase 12: API Layer & Pipeline Events** - REST API endpoints, event bus, SSE streaming for frontend consumption
+- [x] **Phase 12: API Layer & Pipeline Events** - REST API endpoints, event bus, SSE streaming for frontend consumption
 - [ ] **Phase 13: SQLite Storage Migration** - Replace in-memory+JSON stores with SQLAlchemy+SQLite persistence
 - [ ] **Phase 14: Next.js Frontend Shell** - Monorepo setup, App Router, investigation launch and live progress
 - [ ] **Phase 15: Report Viewer & Knowledge Graph** - Analytical report display, fact drill-down, interactive graph visualization
@@ -155,13 +155,13 @@ Plans:
   2. An SSE connection to the stream endpoint receives structured events (phase_started, phase_progress, phase_completed, pipeline_completed, pipeline_error) in real time as the pipeline executes, with Last-Event-ID reconnection support
   3. GET endpoints return JSON for investigation detail, paginated fact lists with classification and verification status, report content with version history, source inventory with authority scores, and graph node/edge data
   4. The OpenAPI spec auto-generated at /openapi.json accurately describes all endpoints and response models, ready for TypeScript client generation
-**Plans**: 4 plans
+**Plans**: 4/4 complete
 
 Plans:
-- [ ] 12-01-PLAN.md — API schemas, RFC 7807 errors, event bus, investigation registry
-- [ ] 12-02-PLAN.md — Investigation lifecycle endpoints + SSE streaming
-- [ ] 12-03-PLAN.md — Facts, reports, sources, and graph data routes
-- [ ] 12-04-PLAN.md — App factory, serve.py wiring, OpenAPI verification
+- [x] 12-01-PLAN.md — API schemas, RFC 7807 errors, event bus, investigation registry
+- [x] 12-02-PLAN.md — Investigation lifecycle endpoints + SSE streaming
+- [x] 12-03-PLAN.md — Facts, reports, sources, and graph data routes
+- [x] 12-04-PLAN.md — App factory, serve.py wiring, OpenAPI verification
 
 ### Phase 13: SQLite Storage Migration
 **Goal**: All investigation data persists durably in SQLite, surviving process restarts, with no behavioral changes to pipeline or API code
@@ -235,7 +235,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15 → 16 → 17
 | 9. Knowledge Graph Integration | v1.0 | 5/5 | Complete | 2026-03-13 |
 | 10. Analysis & Reporting Engine | v1.0 | 5/5 | Complete | 2026-03-14 |
 | 11. Crawler Hardening & Pipeline Quality | v2.0 | 4/4 | Complete | 2026-03-21 |
-| 12. API Layer & Pipeline Events | v2.0 | 0/4 | Planning complete | - |
+| 12. API Layer & Pipeline Events | v2.0 | 4/4 | Complete | 2026-03-22 |
 | 13. SQLite Storage Migration | v2.0 | 0/TBD | Not started | - |
 | 14. Next.js Frontend Shell | v2.0 | 0/TBD | Not started | - |
 | 15. Report Viewer & Knowledge Graph | v2.0 | 0/TBD | Not started | - |

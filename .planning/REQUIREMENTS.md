@@ -28,13 +28,13 @@ Requirements for production hardening and full frontend. Each maps to roadmap ph
 
 ### API Layer
 
-- [ ] **API-01**: Investigation registry with first-class investigation entity (create, list, get, delete)
-- [ ] **API-02**: Facts API (list by investigation, get by ID with classification + verification)
-- [ ] **API-03**: Report API (get latest, list versions, trigger regeneration)
-- [ ] **API-04**: Source inventory API (list sources with authority scores per investigation)
-- [ ] **API-05**: Pipeline launch API (POST to start investigation, returns investigation ID)
-- [ ] **API-06**: SSE endpoint streaming pipeline progress events during execution
-- [ ] **API-07**: Graph data API (nodes, edges, query patterns for visualization)
+- [x] **API-01**: Investigation registry with first-class investigation entity (create, list, get, delete)
+- [x] **API-02**: Facts API (list by investigation, get by ID with classification + verification)
+- [x] **API-03**: Report API (get latest, list versions, trigger regeneration)
+- [x] **API-04**: Source inventory API (list sources with authority scores per investigation)
+- [x] **API-05**: Pipeline launch API (POST to start investigation, returns investigation ID)
+- [x] **API-06**: SSE endpoint streaming pipeline progress events during execution
+- [x] **API-07**: Graph data API (nodes, edges, query patterns for visualization)
 
 ### Storage
 
@@ -47,9 +47,9 @@ Requirements for production hardening and full frontend. Each maps to roadmap ph
 
 ### Pipeline Events
 
-- [ ] **EVENT-01**: PipelineEventBus emitting structured events at phase boundaries
-- [ ] **EVENT-02**: InvestigationRunner emits progress events (articles fetched, facts extracted, etc.)
-- [ ] **EVENT-03**: SSE streaming of pipeline events to frontend via FastAPI EventSourceResponse
+- [x] **EVENT-01**: PipelineEventBus emitting structured events at phase boundaries
+- [x] **EVENT-02**: InvestigationRunner emits progress events (articles fetched, facts extracted, etc.)
+- [x] **EVENT-03**: SSE streaming of pipeline events to frontend via FastAPI EventSourceResponse
 
 ### Frontend — Investigation Management
 
@@ -145,16 +145,16 @@ Deferred beyond v2.0.
 | VERIFY-01 | Phase 11 | Complete |
 | VERIFY-02 | Phase 11 | Complete |
 | VERIFY-03 | Phase 11 | Complete |
-| API-01 | Phase 12 | Pending |
-| API-02 | Phase 12 | Pending |
-| API-03 | Phase 12 | Pending |
-| API-04 | Phase 12 | Pending |
-| API-05 | Phase 12 | Pending |
-| API-06 | Phase 12 | Pending |
-| API-07 | Phase 12 | Pending |
-| EVENT-01 | Phase 12 | Pending |
-| EVENT-02 | Phase 12 | Pending |
-| EVENT-03 | Phase 12 | Pending |
+| API-01 | Phase 12 | Complete |
+| API-02 | Phase 12 | Complete |
+| API-03 | Phase 12 | Complete |
+| API-04 | Phase 12 | Complete |
+| API-05 | Phase 12 | Complete |
+| API-06 | Phase 12 | Complete |
+| API-07 | Phase 12 | Complete |
+| EVENT-01 | Phase 12 | Complete |
+| EVENT-02 | Phase 12 | Complete |
+| EVENT-03 | Phase 12 | Complete |
 | STORE-01 | Phase 13 | Pending |
 | STORE-02 | Phase 13 | Pending |
 | STORE-03 | Phase 13 | Pending |

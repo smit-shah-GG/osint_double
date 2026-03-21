@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 12 complete — ready for Phase 13 (SQLite Persistence)
+**Current focus:** Phase 13 — SQLite Storage Migration
 
 ## Current Position
 
-Phase: 12 of 17 (API Layer & Pipeline Events)
-Plan: 4 of 4
-Status: Phase complete
-Last activity: 2026-03-22 — Completed 12-04-PLAN.md (API app factory & integration)
+Phase: 13 of 17 (SQLite Storage Migration)
+Plan: —
+Status: Ready to plan
+Last activity: 2026-03-22 — Phase 12 complete and verified (4 plans, 3 waves, 10 requirements)
 
 Progress: [████████████░░░░░░░░] 57/TBD plans (v1.0 complete, v2.0: 12/12+ Phase 12 all 4 plans done)
 
