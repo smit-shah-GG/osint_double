@@ -183,6 +183,18 @@ class GraphPipeline:
             **stats,
         )
 
+        # Run MAGE algorithms (PageRank, community detection, betweenness centrality)
+        from osint_system.data_management.graph.mage_algorithms import run_mage_analysis
+
+        mage_stats = await run_mage_analysis(self._get_adapter(), investigation_id)
+        if mage_stats:
+            stats["mage"] = mage_stats
+            self._log.info(
+                "mage_analysis_complete",
+                investigation_id=investigation_id,
+                algorithms=list(mage_stats.keys()),
+            )
+
         # Emit graph.ingested event for downstream pipelines (e.g. AnalysisPipeline)
         if self._message_bus is not None:
             await self._message_bus.publish(
