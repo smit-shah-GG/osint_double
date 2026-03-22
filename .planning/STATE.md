@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Automated, accurate extraction and verification of geopolitical facts from diverse open sources with intelligent multi-agent collaboration.
-**Current focus:** Phase 13 COMPLETE -- PostgreSQL + Memgraph Migration. Ready for Phase 17 (Crawler Agent Integration).
+**Current focus:** Phase 14 — Next.js Frontend Shell
 
 ## Current Position
 
-Phase: 13 of 17 (PostgreSQL + Memgraph Migration)
-Plan: 7 of 7
-Status: Phase complete
-Last activity: 2026-03-22 — Completed 13-07-PLAN.md (Integration Wiring + Data Migration)
+Phase: 14 of 17 (Next.js Frontend Shell)
+Plan: —
+Status: Ready to plan
+Last activity: 2026-03-22 — Phase 13 complete and verified (7 plans, 4 waves, 6 requirements)
 
 Progress: [████████████████████] 58/58 plans (v1.0: 45, v2.0: 13 phase plans complete)
 

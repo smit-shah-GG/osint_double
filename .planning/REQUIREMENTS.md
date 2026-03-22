@@ -38,12 +38,12 @@ Requirements for production hardening and full frontend. Each maps to roadmap ph
 
 ### Storage
 
-- [ ] **STORE-01**: Migrate ArticleStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings
-- [ ] **STORE-02**: Migrate FactStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings and full-text search
-- [ ] **STORE-03**: Migrate ClassificationStore from in-memory+JSON to SQLAlchemy+PostgreSQL
-- [ ] **STORE-04**: Migrate VerificationStore from in-memory+JSON to SQLAlchemy+PostgreSQL
-- [ ] **STORE-05**: Migrate ReportStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings
-- [ ] **STORE-06**: Alembic migration infrastructure, Docker Compose (Postgres + Memgraph), and JSON data migration script
+- [x] **STORE-01**: Migrate ArticleStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings
+- [x] **STORE-02**: Migrate FactStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings and full-text search
+- [x] **STORE-03**: Migrate ClassificationStore from in-memory+JSON to SQLAlchemy+PostgreSQL
+- [x] **STORE-04**: Migrate VerificationStore from in-memory+JSON to SQLAlchemy+PostgreSQL
+- [x] **STORE-05**: Migrate ReportStore from in-memory+JSON to SQLAlchemy+PostgreSQL with pgvector embeddings
+- [x] **STORE-06**: Alembic migration infrastructure, Docker Compose (Postgres + Memgraph), and JSON data migration script
 
 ### Pipeline Events
 
@@ -155,12 +155,12 @@ Deferred beyond v2.0.
 | EVENT-01 | Phase 12 | Complete |
 | EVENT-02 | Phase 12 | Complete |
 | EVENT-03 | Phase 12 | Complete |
-| STORE-01 | Phase 13 | Pending |
-| STORE-02 | Phase 13 | Pending |
-| STORE-03 | Phase 13 | Pending |
-| STORE-04 | Phase 13 | Pending |
-| STORE-05 | Phase 13 | Pending |
-| STORE-06 | Phase 13 | Pending |
+| STORE-01 | Phase 13 | Complete |
+| STORE-02 | Phase 13 | Complete |
+| STORE-03 | Phase 13 | Complete |
+| STORE-04 | Phase 13 | Complete |
+| STORE-05 | Phase 13 | Complete |
+| STORE-06 | Phase 13 | Complete |
 | UI-INV-01 | Phase 14 | Pending |
 | UI-INV-02 | Phase 14 | Pending |
 | UI-INV-03 | Phase 14 | Pending |
