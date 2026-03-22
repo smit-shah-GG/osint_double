@@ -15,6 +15,7 @@ from osint_system.data_management.models.classification import ClassificationMod
 from osint_system.data_management.models.verification import VerificationModel
 from osint_system.data_management.models.report import ReportModel
 from osint_system.data_management.models.entity import EntityModel
+from osint_system.data_management.models.investigation import InvestigationModel
 
 __all__ = [
     "Base",
@@ -24,4 +25,5 @@ __all__ = [
     "VerificationModel",
     "ReportModel",
     "EntityModel",
+    "InvestigationModel",
 ]

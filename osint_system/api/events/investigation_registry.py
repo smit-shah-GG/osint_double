@@ -1,9 +1,12 @@
-"""Investigation lifecycle tracking with atomic status transitions.
+"""Investigation lifecycle tracking with PostgreSQL persistence.
 
-The ``InvestigationRegistry`` is the API-layer entity that tracks
-investigation status, parameters, and timestamps.  It is separate from
-the store-level data (FactStore, ArticleStore, etc.) -- those track
-pipeline artifacts, this tracks the investigation lifecycle.
+The ``InvestigationRegistry`` tracks investigation status, parameters,
+and timestamps. Backed by the ``investigations`` table in PostgreSQL
+so data survives server restarts.
+
+In-memory cache keeps the hot path fast; PostgreSQL is the source of
+truth. On startup, ``hydrate_from_db()`` loads all investigations.
+Mutations (create, transition, delete) write-through to both.
 
 Status transitions use compare-and-swap with ``asyncio.Lock`` to prevent
 race conditions between concurrent API calls (e.g. cancel + regenerate).
@@ -18,7 +21,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+import structlog
+
 from osint_system.api.errors import ConflictError
+
+logger = structlog.get_logger(__name__)
 
 
 class InvestigationStatus(str, Enum):
@@ -51,7 +58,7 @@ _VALID_TRANSITIONS: dict[InvestigationStatus, set[InvestigationStatus]] = {
 
 @dataclass
 class Investigation:
-    """In-memory investigation entity.
+    """Investigation entity (cached in-memory, persisted in PostgreSQL).
 
     Attributes:
         id: Unique identifier (``inv-{hex[:8]}``).
@@ -77,16 +84,63 @@ class Investigation:
 
 
 class InvestigationRegistry:
-    """In-memory investigation registry with atomic status transitions.
+    """PostgreSQL-backed investigation registry with in-memory cache.
 
-    All investigations are keyed by ID.  Status transitions use
-    compare-and-swap semantics guarded by ``asyncio.Lock`` to prevent
-    concurrent mutation races (Pitfall 4 from RESEARCH.md).
+    All investigations are keyed by ID. Status transitions use
+    compare-and-swap semantics guarded by ``asyncio.Lock``.
+    Mutations write-through to PostgreSQL via ``session_factory``.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, session_factory: Any | None = None) -> None:
         self._investigations: dict[str, Investigation] = {}
         self._lock = asyncio.Lock()
+        self._session_factory = session_factory
+
+    async def hydrate_from_db(self) -> int:
+        """Load all investigations from PostgreSQL into memory cache.
+
+        Call once on server startup after init_db(). Returns count loaded.
+        """
+        if self._session_factory is None:
+            return 0
+
+        from osint_system.data_management.models.investigation import (
+            InvestigationModel,
+        )
+        from sqlalchemy import select
+
+        count = 0
+        try:
+            async with self._session_factory() as session:
+                result = await session.execute(
+                    select(InvestigationModel).order_by(
+                        InvestigationModel.created_at.desc()
+                    )
+                )
+                for row in result.scalars().all():
+                    try:
+                        status = InvestigationStatus(row.status)
+                    except ValueError:
+                        status = InvestigationStatus.COMPLETED
+
+                    inv = Investigation(
+                        id=row.investigation_id,
+                        objective=row.objective,
+                        status=status,
+                        params=row.params or {},
+                        created_at=row.started_at or row.created_at or datetime.now(timezone.utc),
+                        updated_at=row.completed_at,
+                        error=row.error,
+                        stats=row.stats or {},
+                    )
+                    self._investigations[inv.id] = inv
+                    count += 1
+
+            logger.info("registry_hydrated", count=count)
+        except Exception as e:
+            logger.warning("registry_hydration_failed", error=str(e))
+
+        return count
 
     def create(
         self,
@@ -96,14 +150,7 @@ class InvestigationRegistry:
     ) -> Investigation:
         """Create a new investigation in PENDING state.
 
-        Args:
-            objective: Investigation objective text.
-            params: Optional launch parameters dict.
-            investigation_id: Optional explicit ID.  If None, generates
-                ``inv-{uuid_hex[:8]}``.
-
-        Returns:
-            The created Investigation dataclass.
+        Persists to PostgreSQL if session_factory is available.
         """
         inv_id = investigation_id or f"inv-{uuid.uuid4().hex[:8]}"
         investigation = Investigation(
@@ -112,7 +159,27 @@ class InvestigationRegistry:
             params=params or {},
         )
         self._investigations[inv_id] = investigation
+
+        # Fire-and-forget persist (will be awaited by caller if needed)
+        if self._session_factory is not None:
+            asyncio.ensure_future(self._persist_create(investigation))
+
         return investigation
+
+    async def _persist_create(self, inv: Investigation) -> None:
+        """Write new investigation to PostgreSQL."""
+        from osint_system.data_management.models.investigation import (
+            InvestigationModel,
+        )
+
+        try:
+            async with self._session_factory() as session:
+                async with session.begin():
+                    model = InvestigationModel.from_investigation(inv)
+                    session.add(model)
+            logger.debug("investigation_persisted", id=inv.id)
+        except Exception as e:
+            logger.warning("investigation_persist_failed", id=inv.id, error=str(e))
 
     def get(self, investigation_id: str) -> Investigation | None:
         """Retrieve an investigation by ID.
@@ -139,23 +206,7 @@ class InvestigationRegistry:
     ) -> Investigation:
         """Atomically transition investigation status with compare-and-swap.
 
-        Acquires ``asyncio.Lock``, verifies current status matches
-        ``expected_status``, validates the transition is allowed, then
-        applies the new status.
-
-        Args:
-            investigation_id: Investigation to transition.
-            expected_status: The status the investigation MUST currently have.
-            new_status: The target status.
-            error: Error message (set when transitioning to FAILED).
-            stats: Aggregate stats dict to merge.
-
-        Returns:
-            The updated Investigation.
-
-        Raises:
-            ConflictError: If current status != expected_status, or if the
-                transition is not in the valid transition graph.
+        Writes through to PostgreSQL after in-memory update.
         """
         async with self._lock:
             investigation = self._investigations.get(investigation_id)
@@ -190,14 +241,74 @@ class InvestigationRegistry:
             if stats is not None:
                 investigation.stats.update(stats)
 
-            return investigation
+        # Persist outside lock
+        await self._persist_transition(investigation)
+
+        return investigation
+
+    async def _persist_transition(self, inv: Investigation) -> None:
+        """Update investigation in PostgreSQL after status transition."""
+        if self._session_factory is None:
+            return
+
+        from osint_system.data_management.models.investigation import (
+            InvestigationModel,
+        )
+        from sqlalchemy import update
+
+        try:
+            async with self._session_factory() as session:
+                async with session.begin():
+                    await session.execute(
+                        update(InvestigationModel)
+                        .where(
+                            InvestigationModel.investigation_id == inv.id
+                        )
+                        .values(
+                            status=inv.status.value,
+                            completed_at=inv.updated_at,
+                            error=inv.error,
+                            stats=inv.stats,
+                        )
+                    )
+        except Exception as e:
+            logger.warning(
+                "investigation_transition_persist_failed",
+                id=inv.id,
+                error=str(e),
+            )
 
     def delete(self, investigation_id: str) -> bool:
-        """Remove an investigation from the registry.
-
-        Returns True if the investigation existed and was deleted.
-        """
+        """Remove an investigation from the registry and PostgreSQL."""
         if investigation_id in self._investigations:
             del self._investigations[investigation_id]
+
+            if self._session_factory is not None:
+                asyncio.ensure_future(
+                    self._persist_delete(investigation_id)
+                )
             return True
         return False
+
+    async def _persist_delete(self, investigation_id: str) -> None:
+        """Delete investigation from PostgreSQL."""
+        from osint_system.data_management.models.investigation import (
+            InvestigationModel,
+        )
+        from sqlalchemy import delete
+
+        try:
+            async with self._session_factory() as session:
+                async with session.begin():
+                    await session.execute(
+                        delete(InvestigationModel).where(
+                            InvestigationModel.investigation_id
+                            == investigation_id
+                        )
+                    )
+        except Exception as e:
+            logger.warning(
+                "investigation_delete_persist_failed",
+                id=investigation_id,
+                error=str(e),
+            )

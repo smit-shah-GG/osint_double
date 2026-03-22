@@ -25,8 +25,11 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+
+logger = structlog.get_logger(__name__)
 
 from osint_system.api.errors import register_error_handlers
 from osint_system.api.events.event_bus import PipelineEventBus
@@ -64,6 +67,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     except ImportError:
         pass
     app.state.embedding_service = embedding_service
+
+    # Hydrate investigation registry from PostgreSQL (survives restarts)
+    registry = getattr(app.state, "investigation_registry", None)
+    if registry is not None and hasattr(registry, "hydrate_from_db"):
+        count = await registry.hydrate_from_db()
+        if count:
+            logger.info("investigations_loaded_from_db", count=count)
 
     yield
 
@@ -118,7 +128,9 @@ def create_api_app() -> FastAPI:
 
     # ── app.state initialization ─────────────────────────────────────
     app.state.event_bus = PipelineEventBus()
-    app.state.investigation_registry = InvestigationRegistry()
+    app.state.investigation_registry = InvestigationRegistry(
+        session_factory=getattr(app.state, "session_factory", None),
+    )
     app.state.active_tasks: dict[str, asyncio.Task] = {}  # type: ignore[annotation-unchecked]
     app.state.cancel_flags: dict[str, asyncio.Event] = {}  # type: ignore[annotation-unchecked]
     app.state.investigation_stores: dict[str, dict] = {}  # type: ignore[annotation-unchecked]

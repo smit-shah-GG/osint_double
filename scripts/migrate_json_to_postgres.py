@@ -437,6 +437,22 @@ async def run_migration(
         investigation_id = inv_dir.name
         logger.info("Migrating investigation %s ...", investigation_id)
 
+        # Create investigation record (first-class entity)
+        from osint_system.data_management.models.investigation import InvestigationModel
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    stmt = pg_insert(InvestigationModel).values(
+                        investigation_id=investigation_id,
+                        objective="(migrated investigation)",
+                        status="completed",
+                    ).on_conflict_do_nothing(index_elements=["investigation_id"])
+                    await session.execute(stmt)
+        except Exception as e:
+            logger.debug("investigation_record_insert_failed: %s", e)
+
+        totals["investigations"] += 1
+
         # Articles
         articles_path = inv_dir / "articles.json"
         if articles_path.exists():
