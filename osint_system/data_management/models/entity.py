@@ -61,7 +61,7 @@ class EntityModel(TimestampMixin, Base):
     )
 
     # pgvector embedding on canonical name (1024 dims for gte-large-en-v1.5)
-    embedding = mapped_column(Vector(1024), nullable=True)
+    embedding = mapped_column(Vector(768), nullable=True)
 
     @classmethod
     def from_dict(

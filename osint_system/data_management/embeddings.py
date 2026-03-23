@@ -36,7 +36,7 @@ class EmbeddingService:
 
     def __init__(
         self,
-        model_name: str = "Alibaba-NLP/gte-large-en-v1.5",
+        model_name: str = "sentence-transformers/all-mpnet-base-v2",
         device: Optional[str] = None,
     ) -> None:
         if device is None:
@@ -44,7 +44,7 @@ class EmbeddingService:
 
         self._device = device
         self._model_name = model_name
-        self._model = SentenceTransformer(model_name, trust_remote_code=True)
+        self._model = SentenceTransformer(model_name)
         self._model.to(device)
 
         # Cache the output dimension from the model's configuration.

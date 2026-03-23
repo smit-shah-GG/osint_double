@@ -62,7 +62,7 @@ class ReportModel(TimestampMixin, Base):
     )
 
     # pgvector embedding on executive summary (1024 dims)
-    embedding = mapped_column(Vector(1024), nullable=True)
+    embedding = mapped_column(Vector(768), nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

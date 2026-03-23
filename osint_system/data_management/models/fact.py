@@ -106,7 +106,7 @@ class FactModel(TimestampMixin, Base):
     )
 
     # pgvector embedding (1024 dims for gte-large-en-v1.5)
-    embedding = mapped_column(Vector(1024), nullable=True)
+    embedding = mapped_column(Vector(768), nullable=True)
 
     # tsvector for full-text search (generated column)
     claim_tsvector = mapped_column(
