@@ -68,8 +68,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         pass
     app.state.embedding_service = embedding_service
 
-    # Hydrate investigation registry from PostgreSQL (survives restarts)
+    # Wire session_factory into registry (constructed before lifespan runs)
     registry = getattr(app.state, "investigation_registry", None)
+    if registry is not None:
+        registry._session_factory = session_factory
+
+    # Hydrate investigation registry from PostgreSQL (survives restarts)
     if registry is not None and hasattr(registry, "hydrate_from_db"):
         count = await registry.hydrate_from_db()
         if count:

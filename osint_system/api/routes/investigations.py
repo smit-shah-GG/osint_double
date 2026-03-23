@@ -384,7 +384,7 @@ async def create_investigation(
     """
     registry = request.app.state.investigation_registry
 
-    investigation = registry.create(
+    investigation = await registry.create(
         objective=body.objective,
         params=body.model_dump(exclude={"objective"}, exclude_none=True),
     )
@@ -477,7 +477,7 @@ async def delete_investigation(
             task.cancel()
 
     # Delete from registry
-    deleted = registry.delete(investigation_id)
+    deleted = await registry.delete(investigation_id)
     if not deleted:
         raise NotFoundError(
             detail=f"Investigation '{investigation_id}' not found.",

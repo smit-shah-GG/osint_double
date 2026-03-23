@@ -142,7 +142,7 @@ class InvestigationRegistry:
 
         return count
 
-    def create(
+    async def create(
         self,
         objective: str,
         params: dict[str, Any] | None = None,
@@ -160,9 +160,9 @@ class InvestigationRegistry:
         )
         self._investigations[inv_id] = investigation
 
-        # Fire-and-forget persist (will be awaited by caller if needed)
+        # Persist to PostgreSQL (awaited, not fire-and-forget)
         if self._session_factory is not None:
-            asyncio.ensure_future(self._persist_create(investigation))
+            await self._persist_create(investigation)
 
         return investigation
 
@@ -278,15 +278,13 @@ class InvestigationRegistry:
                 error=str(e),
             )
 
-    def delete(self, investigation_id: str) -> bool:
+    async def delete(self, investigation_id: str) -> bool:
         """Remove an investigation from the registry and PostgreSQL."""
         if investigation_id in self._investigations:
             del self._investigations[investigation_id]
 
             if self._session_factory is not None:
-                asyncio.ensure_future(
-                    self._persist_delete(investigation_id)
-                )
+                await self._persist_delete(investigation_id)
             return True
         return False
 
