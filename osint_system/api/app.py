@@ -68,6 +68,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         pass
     app.state.embedding_service = embedding_service
 
+    # Shared stores for data access (used by report/fact/source routes as fallback)
+    from osint_system.data_management.article_store import ArticleStore
+    from osint_system.data_management.classification_store import ClassificationStore
+    from osint_system.data_management.fact_store import FactStore
+    from osint_system.data_management.verification_store import VerificationStore
+    from osint_system.reporting.report_store import ReportStore
+
+    app.state.article_store = ArticleStore(
+        session_factory=session_factory, embedding_service=embedding_service,
+    )
+    app.state.fact_store = FactStore(
+        session_factory=session_factory, embedding_service=embedding_service,
+    )
+    app.state.classification_store = ClassificationStore(session_factory=session_factory)
+    app.state.verification_store = VerificationStore(session_factory=session_factory)
+    app.state.report_store = ReportStore(
+        session_factory=session_factory, embedding_service=embedding_service,
+    )
+
     # Wire session_factory into registry (constructed before lifespan runs)
     registry = getattr(app.state, "investigation_registry", None)
     if registry is not None:
