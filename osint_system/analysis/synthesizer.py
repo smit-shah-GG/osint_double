@@ -342,6 +342,7 @@ class Synthesizer:
 
         config_dict: dict[str, Any] = {
             "temperature": self._config.temperature,
+            "max_output_tokens": 20000,
         }
         if structured:
             config_dict["response_format"] = "json"
